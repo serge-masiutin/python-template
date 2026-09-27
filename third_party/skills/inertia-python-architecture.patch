@@ -1,0 +1,428 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,16 +1,36 @@
+ ---
+-name: inertia-rails-architecture
++name: inertia-python-architecture
+ description: >-
+-  Server-driven architecture patterns for Inertia Rails + React. Load this FIRST when building any Inertia page
++  Server-driven architecture patterns for Inertia Django + React. Load this FIRST when building any Inertia page
+   or feature — it routes to the right skill. Decision matrix for data loading, forms, navigation, state management.
+-  NEVER useEffect+fetch, NEVER redirect_to for external URLs (use inertia_location), NEVER react-hook-form
++  NEVER useEffect+fetch, NEVER redirect for external URLs (use location), NEVER react-hook-form
+   (use Form component). MUST invoke when adding pages, models with views, CRUD, or displaying data in an
+-  Inertia Rails app. ALWAYS `render inertia: { key: value }` to pass data — `@ivars` are NOT auto-passed as props.
++  Inertia Django app. ALWAYS `render(request, "Page", props={"key": value})` to pass data — `@ivars` are NOT auto-passed as props.
+ ---
+ 
+-# Inertia Rails Architecture
++## Project Contract
+ 
+-Server-driven architecture for Rails + Inertia.js + React when building pages,
++- Read config/settings.py, config/middleware.py, config/http.py and the caller first.
++  This repository uses inertia-django 2 and @inertiajs/react 3, with explicit page names.
++- Server examples below illustrate feature contracts, not preinstalled routes or models.
++  Django views return render(request, component, props=...). Never serialize a model
++  or QuerySet implicitly; build a bounded allowlist first.
++- Use trailing-slash Django routes. The starter mutations are POST endpoints; Django
++  does not automatically parse multipart PATCH/PUT bodies or Rails _method overrides.
++- Supply the shared csrfToken as X-CSRFToken for mutations; config/http.py validates
++  supported JSON or form bodies. A Form component alone does not configure Django CSRF.
++  Do not also configure automatic XSRF injection for the same header: the client
++  can append both values, producing a token Django rejects.
++- Validation uses redirect-after-POST and one-use errors in shared props.
++  Messages use page.flash.messages, an array of {level, message}; there are no
++  notice/alert keys. See the actual web/src/types.ts contract.
++- Frontend-only Vue/Svelte references preserve upstream alternatives; this starter
++  installs React. Rails-only generators and implicit resource lookup do not apply.
++
++
++# Inertia Django Architecture
++
++Server-driven architecture for Django + Inertia.js + React when building pages,
+ forms, navigation, or data refresh. Inertia is NOT a traditional SPA — the
+ server owns routing, data, and auth. React handles rendering only.
+ 
+@@ -29,15 +49,15 @@
+ | Need | Solution | NOT This |
+ |------|----------|----------|
+ | Page data from server | Controller props | useEffect + fetch |
+-| Global data (auth, config) | `inertia_share` + `usePage()` | React Context / Redux |
+-| Flash messages / toasts | Rails `flash` + `usePage().flash` | inertia_share / React state |
++| Global data (auth, config) | `share(request, ...)` + `usePage()` | React Context / Redux |
++| Flash messages / toasts | Django messages + `usePage().flash` | share(request, ...) / React state |
+ | Form submission | `<Form>` component | fetch/axios + useState |
+ | Navigate between pages | `<Link>` / `router.visit` | react-router / window.location |
+ | Refresh specific data | `router.reload({ only: [...] })` | React Query / SWR |
+-| Expensive server data | `InertiaRails.defer` | useEffect + loading state |
+-| Infinite scroll | `InertiaRails.scroll` + `<InfiniteScroll>` | Client-side pagination |
+-| Stable reference data | `InertiaRails.once` | Cache in React state |
+-| Real-time updates (core) | ActionCable + `router.reload` | Polling with setInterval |
++| Expensive server data | `defer` | useEffect + loading state |
++| Infinite scroll | `scroll` + `<InfiniteScroll>` | Client-side pagination |
++| Stable reference data | `once` | Cache in React state |
++| Real-time updates (core) | a configured realtime adapter + `router.reload` | Polling with setInterval |
+ | Simple polling (MVP/prototyping) | `usePoll` (auto-throttles in background tabs) | setInterval + router.reload |
+ | URL-driven UI state (dialogs, tabs) | Controller reads `params` → prop, `router.get` to update | useEffect + window.location |
+ | Ephemeral UI state | `useState` / `useReducer` | Server props |
+@@ -52,9 +72,9 @@
+ | 3 | CRITICAL | Use `<Form>`, not fetch/axios | `<Form>` handles CSRF, redirect-following, error mapping, file detection, and history state — fetch duplicates or breaks all of this |
+ | 4 | HIGH | Use `<Link>` and `router`, not `<a>` or window.location | `<a>` triggers a full page reload, destroying all React state and layout persistence |
+ | 5 | HIGH | Use partial reloads, not React Query/SWR | React Query adds a second cache layer that conflicts with Inertia's page-based caching and versioning |
+-| 5b | HIGH | Use `usePoll` only for MVPs; prefer ActionCable for production real-time | `usePoll` is convenient but wastes bandwidth — every interval hits the server even when nothing changed. ActionCable pushes only on actual changes |
+-| 6 | HIGH | Use `inertia_share` for global data, not React Context | Context re-renders consumers on every change; shared props are per-request and integrated with partial reloads |
+-| 7 | HIGH | Use Rails flash for notifications, not shared props | Flash auto-clears after one response; shared props persist until explicitly changed, causing stale toasts |
++| 5b | HIGH | Use `usePoll` only for MVPs; prefer a configured realtime adapter for production real-time | `usePoll` is convenient but wastes bandwidth — every interval hits the server even when nothing changed. a configured realtime adapter pushes only on actual changes |
++| 6 | HIGH | Use `share(request, ...)` for global data, not React Context | Context re-renders consumers on every change; shared props are per-request and integrated with partial reloads |
++| 7 | HIGH | Use Django messages for notifications, not shared props | Flash auto-clears after one response; shared props persist until explicitly changed, causing stale toasts |
+ | 8 | MEDIUM | Use deferred/optional props for expensive queries | Blocks initial render otherwise — user sees blank page until slow query finishes |
+ | 9 | MEDIUM | Use persistent layouts for state preservation | Without persistent layout, layout remounts on every navigation — scroll position, audio playback, and component state are lost |
+ | 10 | MEDIUM | Keep React components as renderers, not data fetchers | Mixing data-fetching into components makes them untestable and breaks Inertia's server-driven model |
+@@ -65,14 +85,14 @@
+ 
+ | Workflow | Load these skills |
+ |----------|-------------------|
+-| New page with props | `inertia-rails-controllers` + `inertia-rails-pages` + `inertia-rails-typescript` |
+-| Form with validation | `inertia-rails-forms` + `inertia-rails-controllers` |
+-| shadcn form inputs | `inertia-rails-forms` + `shadcn-inertia` |
+-| Flash toasts | `inertia-rails-controllers` + `inertia-rails-pages` + `shadcn-inertia` |
+-| Deferred/lazy data | `inertia-rails-controllers` + `inertia-rails-pages` |
+-| URL-driven dialog/tabs | `inertia-rails-controllers` + `inertia-rails-pages` |
+-| Alba serialization | `alba-inertia` + `inertia-rails-typescript` |
+-| Testing controllers | `inertia-rails-testing` + `inertia-rails-controllers` |
++| New page with props | `inertia-python-controllers` + `inertia-python-pages` + `inertia-python-typescript` |
++| Form with validation | `inertia-python-forms` + `inertia-python-controllers` |
++| shadcn form inputs | `inertia-python-forms` + `shadcn-inertia` |
++| Flash toasts | `inertia-python-controllers` + `inertia-python-pages` + `shadcn-inertia` |
++| Deferred/lazy data | `inertia-python-controllers` + `inertia-python-pages` |
++| URL-driven dialog/tabs | `inertia-python-controllers` + `inertia-python-pages` |
++| Alba serialization | `python-serialization` + `inertia-python-typescript` |
++| Testing controllers | `inertia-python-testing` + `inertia-python-controllers` |
+ 
+ ## References
+ 
+--- original/references/AGENTS.md
++++ adapted/references/AGENTS.md
+@@ -1,7 +1,7 @@
+ # Architecture Rules — Expanded Reference
+ 
+ Incorrect/Correct pairs for all architecture rules. Use as a quick reference
+-when reviewing or writing Inertia.js + Rails code.
++when reviewing or writing Inertia.js + Django code.
+ 
+ ## Table of Contents
+ 
+@@ -42,18 +42,14 @@
+ ```
+ 
+ **Correct: Server provides data as props**
+-```ruby
+-# app/controllers/users_controller.rb
+-class UsersController < InertiaController
+-  def index
+-    render inertia: {
+-      users: User.all.as_json(only: [:id, :name, :email]),
+-    }
+-  end
+-end
+-```
+-```tsx
+-// app/frontend/pages/users/index.tsx — path matches controller/action
++```python
++@login_required
++def index(request):
++    users = User.objects.filter(team__members=request.user).distinct().order_by("pk")[:50]
++    return render(request, "Users/Index", props={"users": [user_summary(user) for user in users]})
++```
++```tsx
++// web/src/pages/users/index.tsx — path matches controller/action
+ export default function Index({ users }: { users: User[] }) {
+   return <UserList users={users} />
+ }
+@@ -67,7 +63,7 @@
+ // Refresh only the users prop
+ router.reload({ only: ['users'] })
+ 
+-// After a mutation Rails redirects back and returns only the users prop
++// After a mutation Django redirects back and returns only the users prop
+ router.post('/users', {
+   data: formData,
+   only: ['users'],
+@@ -92,17 +88,10 @@
+ ```
+ 
+ **Correct: Server handles auth, React trusts it**
+-```ruby
+-# app/controllers/dashboard_controller.rb
+-class DashboardController < InertiaController
+-  before_action :authenticate_user! # Redirect happens server-side
+-
+-  def index
+-    render inertia: {
+-      stats: DashboardStats.for(Current.user),
+-    }
+-  end
+-end
++```python
++@login_required
++def dashboard(request):
++    return render(request, "Dashboard", props={"stats": dashboard_stats(actor=request.user)})
+ ```
+ ```tsx
+ // If this component renders, user IS authenticated
+@@ -218,7 +207,7 @@
+ // Refresh specific props without full page reload
+ router.reload({ only: ['users'] })
+ 
+-// Polling (simple/MVP — prefer ActionCable for production real-time)
++// Polling (simple/MVP — prefer a configured realtime adapter for production real-time)
+ // usePoll auto-throttles when tab is in background, auto-stops on unmount
+ import { usePoll } from '@inertiajs/react'
+ usePoll(30000, { only: ['notifications'] })
+@@ -236,7 +225,7 @@
+ //   return () => clearInterval(interval)
+ // }, [])
+ 
+-// After user action Rails redirects back and returns only the users prop
++// After user action Django redirects back and returns only the users prop
+ const handleDelete = (id: number) => {
+   router.delete(`/users/${id}`, {
+     only: ['users'],
+@@ -250,7 +239,7 @@
+ 
+ **Incorrect: React Context for global app state**
+ ```tsx
+-// BAD — reimplementing what inertia_share already does
++// BAD — reimplementing what share(request, ...) already does
+ const AuthContext = createContext(null)
+ const FlashContext = createContext(null)
+ 
+@@ -265,14 +254,14 @@
+ }
+ ```
+ 
+-**Correct: Shared props via inertia_share**
+-```ruby
+-# app/controllers/application_controller.rb
+-class ApplicationController < ActionController::Base
+-  inertia_share do
+-    { auth: { user: Current.user&.as_json(only: [:id, :name, :email, :role]) } }
+-  end
+-end
++**Correct: Shared props via share(request, ...)**
++```python
++def shared_props(get_response):
++    def middleware(request):
++        user = user_summary(request.user) if request.user.is_authenticated else None
++        share(request, auth={"user": user})
++        return get_response(request)
++    return middleware
+ ```
+ ```tsx
+ // Access anywhere in React tree
+@@ -289,32 +278,24 @@
+ ## Rule 7: Flash Messages (HIGH)
+ 
+ **Incorrect: Passing flash through shared props manually**
+-```ruby
+-# BAD — flash is already automatic in inertia-rails
+-inertia_share do
+-  { flash: flash.to_hash.compact }
+-end
++```python
++# Do not duplicate Django messages in shared props.
++# inertia-django exposes messages in page.flash.messages automatically.
+ ```
+ ```tsx
+ // BAD — accessing flash as a regular prop
+ const { flash } = usePage().props
+ ```
+ 
+-**Correct: Use Rails flash normally (it's automatic)**
+-```ruby
+-# Rails flash works automatically with Inertia.
+-# By default notice and alert keys are included,
+-# Configure if additional keys are needed:
+-# config/initializers/inertia_rails.rb
+-InertiaRails.configure do |config|
+-  config.flash_keys = %i[notice alert toast]
+-end
+-
+-# In controllers, just use Rails flash normally:
+-def create
+-  @user = User.create!(user_params)
+-  redirect_to users_path, notice: "User created!"
+-end
++**Correct: Use Django messages normally (it's automatic)**
++```python
++from django.contrib import messages
++from config.http import redirect_303
++
++def create(request):
++    user = create_user_from_validated_form(request)
++    messages.success(request, "User created")
++    return redirect_303("users")
+ ```
+ ```tsx
+ // Access flash directly on the page object (NOT props)
+@@ -324,8 +305,7 @@
+   const { flash } = usePage()
+   return (
+     <>
+-      {flash.notice && <Toast type="success">{flash.notice}</Toast>}
+-      {flash.alert && <Toast type="error">{flash.alert}</Toast>}
++      {flash.messages?.map((item, index) => <Toast key={index} type={item.level}>{item.message}</Toast>)}
+     </>
+   )
+ }
+@@ -351,15 +331,13 @@
+ ```
+ 
+ **Correct: Deferred props**
+-```ruby
+-# Server defers expensive computation
+-def index
+-  render inertia: {
+-    basic_stats: DashboardStats.quick,
+-    detailed_stats: InertiaRails.defer { DashboardStats.detailed },
+-    permissions: InertiaRails.defer(group: 'auth') { Current.user.permissions },
+-  }
+-end
++```python
++def dashboard(request):
++    return render(request, "Dashboard", props={
++        "basic_stats": quick_stats(actor=request.user),
++        "detailed_stats": defer(lambda: detailed_stats(actor=request.user)),
++        "permissions": defer(lambda: permissions_for(request.user), group="auth"),
++    })
+ ```
+ ```tsx
+ import { Deferred } from '@inertiajs/react'
+@@ -437,14 +415,11 @@
+   return <ProfileCard user={user} />
+ }
+ ```
+-```ruby
+-# Data comes from the controller
+-# app/controllers/users_controller.rb
+-def show
+-  render inertia: {
+-    user: User.find(params[:id]).as_json(only: [:id, :name, :email, :bio])
+-  }
+-end
++```python
++@login_required
++def show(request, user_id):
++    user = get_object_or_404(users_visible_to(request.user), pk=user_id)
++    return render(request, "Users/Show", props={"user": user_summary(user)})
+ ```
+ 
+ If a child component needs data, pass it down as props from the page.
+--- original/references/decision-trees.md
++++ adapted/references/decision-trees.md
+@@ -1,17 +1,17 @@
+ # Decision Trees
+ 
+-Quick flowcharts for common Inertia.js + Rails decisions.
++Quick flowcharts for common Inertia.js + Django decisions.
+ 
+ ## "I need data in my component"
+ 
+ ```
+ Is this data specific to this page?
+-├── YES → Controller prop (render inertia: props: { ... })
++├── YES → Controller prop (render(request, component, props=...))
+ │   └── Is it expensive to compute?
+-│       ├── >500ms → InertiaRails.defer { ... }
++│       ├── >500ms → defer { ... }
+ │       ├── <100ms → Regular prop (defer overhead not worth it)
+ │       └── 100-500ms → Judgment call — defer if page has fast props to show first
+-├── NO, it's needed on every page → inertia_share
++├── NO, it's needed on every page → share(request, ...)
+ └── NO, it's from an external API → Dedicated API endpoint
+     (Stripe status, third-party webhook, etc.)
+ ```
+@@ -25,8 +25,8 @@
+ └── NO
+     ├── Need to refresh page data? → router.reload({ only: [...] })
+     ├── Need real-time updates?
+-    │   ├── Core feature (chat, live feed)? → ActionCable + router.reload
+-    │   └── MVP/prototype or no ActionCable yet? → usePoll(interval, { only: [...] })
++    │   ├── Core feature (chat, live feed)? → a configured realtime adapter + router.reload
++    │   └── MVP/prototype or no a configured realtime adapter yet? → usePoll(interval, { only: [...] })
+     ├── Need optimistic UI? → useState for optimistic + router.post with onError rollback
+     └── Need search/filter? → router.visit with query params (preserveState)
+ ```
+@@ -38,12 +38,12 @@
+ ├── Server → It's a prop, not state
+ ├── User interaction (modal open, dropdown) → useState
+ ├── Form data → <Form> component (or useForm for complex cases)
+-├── Shared across pages (auth) → usePage().props (from inertia_share)
++├── Shared across pages (auth) → usePage().props (from share(request, ...))
+ └── Multiple components need it → Lift to closest common parent as prop
+     └── Still unwieldy? → Consider React Context (rare in Inertia apps)
+ ```
+ 
+-## "Should I prefetch / poll / defer / use ActionCable?"
++## "Should I prefetch / poll / defer / use a configured realtime adapter?"
+ 
+ ```
+ PREFETCH — preload page data before navigation:
+@@ -55,9 +55,9 @@
+ 
+ POLL — auto-refresh data on an interval:
+ ├── Dashboard counters, queue status, leaderboard? → YES, usePoll with only: [...]
+-├── Query is expensive (>1s)? → NO — use ActionCable push instead
+-├── Updates are rare (<1/hour)? → NO — manual refresh or ActionCable
+-├── Need real-time (<1s latency)? → NO — use ActionCable/WebSockets
++├── Query is expensive (>1s)? → NO — use a configured realtime adapter push instead
++├── Updates are rare (<1/hour)? → NO — manual refresh or a configured realtime adapter
++├── Need real-time (<1s latency)? → NO — use a configured realtime adapter/WebSockets
+ └── Need user control? → { autoStart: false } + start/stop
+ 
+ DEFER — load expensive data after initial render:
+@@ -71,7 +71,7 @@
+ ├── Updates must arrive <1s after change? → YES
+ ├── Multiple users see the same resource? → YES — broadcast on change
+ ├── Only current user's data, low frequency? → usePoll is simpler
+-└── Pattern: ActionCable receives event → router.reload({ only: [...] })
++└── Pattern: a configured realtime adapter receives event → router.reload({ only: [...] })
+ ```
+ 
+ ## "I need to navigate"
+@@ -80,7 +80,7 @@
+ Is this a link the user clicks?
+ ├── YES → <Link href={...}> (with prefetch for common destinations)
+ ├── NO, programmatic after action → router.visit / router.get
+-├── External URL from server? → inertia_location (CRITICAL — not redirect_to)
++├── External URL from server? → location (CRITICAL — not redirect)
+ ├── External URL from client? → window.location.href
+ └── Need to update URL params? → router.visit with preserveState
+ ```
+@@ -89,9 +89,9 @@
+ 
+ ```
+ Is it a one-time message (success, error)?
+-├── YES → Rails flash + usePage().flash
+-│   └── Need custom keys beyond notice/alert? → config.flash_keys
+-├── Need it to persist across navigations? → inertia_share (shared prop)
++├── YES → Django messages + usePage().flash
++│   └── Need custom keys beyond notice/alert? → config.Django messages
++├── Need it to persist across navigations? → share(request, ...) (shared prop)
+ └── Client-side only (no server)? → router.flash('key', 'value')
+ ```
+ 
+@@ -99,9 +99,9 @@
+ 
+ ```
+ Is the destination inside the Inertia app?
+-├── YES → redirect_to path (standard Rails redirect)
+-│   └── With flash? → redirect_to path, notice: "Done!"
++├── YES → redirect path (303 Django redirect)
++│   └── With flash? → redirect path, notice: "Done!"
+ └── NO, external URL (Stripe, OAuth, etc.)
+-    └── inertia_location url (returns 409 + X-Inertia-Location header)
+-        NEVER: redirect_to external_url (breaks Inertia)
++    └── location url (returns 409 + X-Inertia-Location header)
++        NEVER: redirect external_url (breaks Inertia)
+ ```

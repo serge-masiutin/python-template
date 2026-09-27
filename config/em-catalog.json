@@ -1,0 +1,222 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "design-system",
+      "description": "Create and maintain a consistent design system through component contracts, inventories, and verification, with separate workflows for evolving the system and building interfaces with it.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/design-system.tar.gz",
+      "digest": "sha256:a2650bdc36c0a36689ebba35e428000b9a7674fd939da08c2544225d6897ee34"
+    },
+    {
+      "name": "llms-visibility",
+      "description": "Make a site readable to ChatGPT, Claude, Perplexity, and the coding agents that fetch URLs: Markdown routes, Accept content negotiation, llms.txt, and crawler signals in robots.txt. Pushes back on the AI-SEO advice we tested and found useless.",
+      "type": "skill-md",
+      "url": "https://evilmartians.com/agent-skills/llms-visibility/SKILL.md",
+      "digest": "sha256:aebabc7f566f9014359414190193d7bb33d07d2f60ed916252e0332076433ee6"
+    },
+    {
+      "name": "intent-log",
+      "description": "Keep a shared record of what a person actually wanted, one short list per day tagged with the PRs it produced, so a teammate can catch up on a burst of agent-assisted work without reading every pull request. Written by the agent at the end of a session, not by hand.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/intent-log.tar.gz",
+      "digest": "sha256:2e045f7294c95b27c9923cb6d71f7791ad6fb05f643cb7725526b923fe53e88a"
+    },
+    {
+      "name": "sb-audit",
+      "description": "Periodic Storybook audit \u2014 naming-drift survey, archived/decision-board review, lifecycle tagging, usage refresh. Use for 'audit my Storybook', 'find drift', 'show pending decisions', or a periodic catalog health check.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-audit.tar.gz",
+      "digest": "sha256:64393c2634d45e2ad14c05fbd863dd6c7311d015aaf7203d0502054174ba0488"
+    },
+    {
+      "name": "sb-explore",
+      "description": "Iterate on a new or redesigned component in a sandboxed Explore story outside src/components/ (+ Figma), checked against a graduation gate. Use for 'prototype this', 'try a v2', 'explore from Figma', or net-new UI not ready to ship.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-explore.tar.gz",
+      "digest": "sha256:050251f7be1dced3726ff673e4c9c922fed98b45b74dfc7509963d6e2a2b424e"
+    },
+    {
+      "name": "sb-figma",
+      "description": "The Figma\u2194Storybook bridge, both directions, via the native Figma MCP. design\u2192code: map foundation tokens (color/spacing/type) from Figma variables with design\u2194code parity + drift, and deliver approved Figma components (extract \u2192 build \u2192 embed), authoring stories via sb-stories' rules. code\u2192design: build Code Connect mappings from components + stories + token parity + usage so Figma Dev Mode shows the real code. Use for 'sync my Figma tokens', 'map Figma variables to my design system', 'deliver this approved Figma design', 'check design\u2194code token parity', 'connect my components to Figma / code connect'. NOT for prototyping/iterating an undecided design (that's sb-explore).",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-figma.tar.gz",
+      "digest": "sha256:325b0e9e7de5ccaf1f89044d6e92ed3cb6b3ab2b2d0b5b39c50c625985906e43"
+    },
+    {
+      "name": "sb-flows",
+      "description": "Map the whole app \u2014 routes, navigation edges, and persistent nav chrome, not just a screen list. Use for 'map the app', 'show the flow', 'app map', 'audit navigation', or 'how do screens connect'.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-flows.tar.gz",
+      "digest": "sha256:c4fbbfe2d659ebede4711644a8cdb81625a65b30d834007e42efad6b48c9393d"
+    },
+    {
+      "name": "sb-health",
+      "description": "Check design-system health for a React+Vite app \u2014 raw hex, undefined/unused tokens, scale gaps, DESIGN.md drift, and (opt-in) property\u2192token-family misuse. Use for 'is my design system healthy', 'find raw colors', 'check tokens', or a mixed design system.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-health.tar.gz",
+      "digest": "sha256:01e01ec98833afb311e9d9a4c8842a14240d21c0ee6fba4ddcbf367fd60fb6d4"
+    },
+    {
+      "name": "sb-hub",
+      "description": "Hub for the Storybook CSF3 bundle \u2014 diagnose a repo, orchestrate the audit\u2192stories pipeline, or name the next sb-* step. Use for 'set up Storybook', 'audit my app', 'where do I start', 'what's next'.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-hub.tar.gz",
+      "digest": "sha256:a4feeaccfd2faf60fc52a47a49c3e42967680c177b36e596b2cc3385cd0bb161"
+    },
+    {
+      "name": "sb-inventory",
+      "description": "Audit a React+Vite app for real-vs-slop components (by actual imports), the dominant design system, and real prop-value usage at call sites. Use for 'what components do I have', 'which are dead', 'audit this vibe-coded app'.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-inventory.tar.gz",
+      "digest": "sha256:c6130d83a8db7d6b275702756a6ccaf995931c1402482a3001eb3a64b5d20145"
+    },
+    {
+      "name": "sb-setup",
+      "description": "Set up Storybook on a React+Vite app that has none \u2014 defer to `npx storybook ai setup`, then align viteFinal/providers/MCP and ask where stories live. Use for 'set up Storybook', 'install Storybook', or NO_STORYBOOK.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-setup.tar.gz",
+      "digest": "sha256:75045ef0ef31800a43266ed9167babc3bbc415fc76d58403d9ec84540234a5d4"
+    },
+    {
+      "name": "sb-ship",
+      "description": "Graduate ONE Explore experiment to a production component \u2014 preserve the experiment (cp, never git mv), pick new-vs-update, close the decision loop. Use for 'ship this', 'promote this experiment', 'graduate to production'.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-ship.tar.gz",
+      "digest": "sha256:5d42cb12056750f350c4c49cf9afddd954e43f81ee1419e0dd71c91b8764820f"
+    },
+    {
+      "name": "sb-stories",
+      "description": "Write a CSF3 story for ONE React component, covering only its materially-different states (no Cartesian), with a factory when 3+ stories share a shape. Use for 'write a story for X', 'document this component', 'add a Storybook story'.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-stories.tar.gz",
+      "digest": "sha256:e4f41b13bf82cd7d63e38cf19bf792b5ab47ccc21bba2a190dea86ec0532bbe3"
+    },
+    {
+      "name": "sb-wrappers",
+      "description": "Scaffold a Storybook-only wrapper \u2014 ABCanvas, StateGrid, AppFlowGraph, ProjectInventory, and more. Use for 'compare two designs', 'every state on one canvas', 'the full flow', 'track this decision', or 'scaffold wrappers'.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/sb-wrappers.tar.gz",
+      "digest": "sha256:47594ffa34161468bcc783478ff82462a22d29cb8c371e7a2bc1ebf4d3323cb0"
+    },
+    {
+      "name": "layered-rails",
+      "description": "Write, refactor, and review Rails code by the principles from the Layered Design for Ruby on Rails Applications book: service, form, policy, and query objects, plus a codebase analysis that scores callbacks, finds god objects by churn and complexity, and flags layer violations in a diff.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/layered-rails.tar.gz",
+      "digest": "sha256:d2cabf58eb12a5e0762b5948a43f6b713374e0c5209d8c43e298e90bd46669d0"
+    },
+    {
+      "name": "good-readme",
+      "description": "Write or rewrite an open source README the way PostCSS, Nano ID, imgproxy, and AnyCable did it: lead with what the project does and how it differs, drop the badges, and never invent a benchmark the repo can't back up.",
+      "type": "skill-md",
+      "url": "https://evilmartians.com/agent-skills/good-readme/SKILL.md",
+      "digest": "sha256:be284e69d5c41cf125d4ce54f34ea6025a6de00f6269d9a091af3a217e360cd2"
+    },
+    {
+      "name": "inertia-rails-architecture",
+      "description": "Server-driven architecture patterns for Inertia Rails + React. Load this FIRST when building any Inertia page or feature \u2014 it routes to the right skill. Decision matrix for data loading, forms, navigation, state management. NEVER useEffect+fetch, NEVER redirect_to for external URLs (use inertia_location), NEVER react-hook-form (use Form component). MUST invoke when adding pages, models with views, CRUD, or displaying data in an Inertia Rails app. ALWAYS `render inertia: { key: value }` to pass data \u2014 `@ivars` are NOT auto-passed as props.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/inertia-rails-architecture.tar.gz",
+      "digest": "sha256:e3ab4c4e7b61e94c8921578d2c7723892cb6235e17b95a85b0e20c1e8bec02dc"
+    },
+    {
+      "name": "inertia-rails-setup",
+      "description": "One-time project initializer for Inertia Rails skills. Detects stack and frontend framework (React/Vue/Svelte) from Gemfile and package.json, offers to install recommended deps (alba-inertia, js-routes, pagy, shadcn), and generates a CLAUDE.md section that configures which skill patterns apply. Use when first installing these skills, bootstrapping a new Inertia Rails project, or when the stack changes.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/inertia-rails-setup.tar.gz",
+      "digest": "sha256:35132ace42f98afbb0693aad56ccaa23d813874736387fb99438d0b4cbe36b5a"
+    },
+    {
+      "name": "inertia-rails-controllers",
+      "description": "ALWAYS `render inertia: { key: data }` to pass data as props \u2014 instance variables are NOT auto-passed (only alba-inertia does that). Rails controller patterns for Inertia.js: render inertia, prop types (defer, optional, merge, scroll), shared data, flash, PRG redirects, validation errors. Use when writing controllers that load data, display records, or serve Inertia responses. CRITICAL: external URLs (Stripe/OAuth) MUST use inertia_location, NEVER redirect_to.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/inertia-rails-controllers.tar.gz",
+      "digest": "sha256:fc88ed1be1ede86ab65e8aee397ebb8b864898198d7bb1bcd19dc7f0fbc67c2a"
+    },
+    {
+      "name": "inertia-rails-forms",
+      "description": "Full-stack form handling for Inertia Rails: create, edit, delete, multi-step wizard, and file upload forms with validation errors and progress tracking. React examples inline; Vue and Svelte equivalents in references. Use when building any form, handling file uploads, multi-step forms, client-side validation, or wiring form submission to Rails controllers. NEVER react-hook-form. Use `<Form>` for simple forms, useForm for dynamic/programmatic control.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/inertia-rails-forms.tar.gz",
+      "digest": "sha256:b13560b993770b114c7659adecb3f0192fd05aa206f69dcd58628769f8aba620"
+    },
+    {
+      "name": "inertia-rails-pages",
+      "description": "Page components, persistent layouts, Link/router navigation, Head, Deferred, WhenVisible, InfiniteScroll, and URL-driven state for Inertia Rails. React examples inline; Vue and Svelte equivalents in references. Use when building pages, adding navigation, implementing persistent layouts, infinite scroll, lazy-loaded sections, or working with client-side Inertia APIs (router.reload, router.replaceProp, prefetching).",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/inertia-rails-pages.tar.gz",
+      "digest": "sha256:cfbbf6dc93b8fa3bdd6149ed73b27e01e8e3212d367824560805ecb7487acd97"
+    },
+    {
+      "name": "inertia-rails-typescript",
+      "description": "TypeScript type safety for Inertia Rails (React, Vue, Svelte): shared props, flash, and errors via InertiaConfig module augmentation in globals.d.ts. Use when setting up TypeScript types, configuring shared props typing, fixing TS2344 or TS2339 errors in Inertia components, or adding new shared data.",
+      "type": "skill-md",
+      "url": "https://evilmartians.com/agent-skills/inertia-rails-typescript/SKILL.md",
+      "digest": "sha256:3f1381841ea2bbe14d7f8ea2cf7c8c2ec69c5e7cea65413e4ef640d78f1d94ea"
+    },
+    {
+      "name": "inertia-rails-testing",
+      "description": "Testing Inertia Rails responses with RSpec and Minitest: component assertions, prop matching, flash verification, deferred props, and partial reload helpers. Use when writing controller specs, request specs, or integration tests for Inertia pages. ALWAYS use matchers (render_component, have_props, have_flash), NOT direct access (inertia.component, inertia.props). CRITICAL: after POST/PATCH/DELETE with redirect, MUST call follow_redirect! before asserting flash or props \u2014 without it you're asserting against the 302, not the Inertia page. Setup: require 'inertia_rails/rspec'.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/inertia-rails-testing.tar.gz",
+      "digest": "sha256:2e76a6396f0c2667f5d532775b3101da34d00a6614aea010fb066f8acd2cc363"
+    },
+    {
+      "name": "shadcn-inertia",
+      "description": "shadcn/ui component integration for Inertia Rails React (NOT Next.js): forms, dialogs, tables, toasts, dark mode, command palette, and more. Use when building UI with shadcn/ui components in an Inertia app or adapting shadcn examples from Next.js. NEVER react-hook-form/zod \u2014 wire shadcn inputs to Inertia Form via name attribute. Flash toasts require Rails flash_keys initializer config.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/shadcn-inertia.tar.gz",
+      "digest": "sha256:198ad8a8eef89206e17c23c01632377201164a09d646241d7ba7246a6b01bfa4"
+    },
+    {
+      "name": "shadcn-vue-inertia",
+      "description": "shadcn-vue component integration for Inertia Rails Vue 3 (NOT Nuxt): forms, dialogs, tables, toasts, dark mode, and more. Use when building UI with shadcn-vue components in an Inertia + Vue app or adapting shadcn-vue examples from Nuxt. Wire shadcn-vue inputs to Inertia Form via name attribute and #default scoped slot. Flash toasts require Rails flash_keys initializer config.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/shadcn-vue-inertia.tar.gz",
+      "digest": "sha256:80265874ddae39bb7ca7974d8c38350a83d38141f33a6f7951b87239fd8aa1b1"
+    },
+    {
+      "name": "shadcn-svelte-inertia",
+      "description": "shadcn-svelte (bits-ui) component integration for Inertia Rails Svelte (NOT SvelteKit): forms, dialogs, tables, toasts, dark mode, and more. Use when building UI with shadcn-svelte components in an Inertia + Svelte app or adapting shadcn-svelte examples from SvelteKit. Wire shadcn-svelte inputs to Inertia Form via name attribute and {#snippet} syntax. Flash toasts require Rails flash_keys initializer config.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/shadcn-svelte-inertia.tar.gz",
+      "digest": "sha256:1602d8ecc47309d2e881f409d09072e3e20a20d9e4cb67dc13b459b12170ee05"
+    },
+    {
+      "name": "alba-inertia",
+      "description": "Alba serializers + Typelizer for type-safe Inertia Rails props with auto-generated TypeScript types. Use when serializing models for Inertia responses, setting up Alba resources, generating TypeScript types from Ruby, or using Inertia prop options (defer, once, merge, scroll) with Alba attributes. Replaces as_json with structured, auto-typed ApplicationResource, page resources, and shared props resources. When active, OVERRIDES the `render inertia: { ... }` pattern from other skills \u2014 use convention-based instance variable rendering instead.",
+      "type": "archive",
+      "url": "https://evilmartians.com/agent-skills/alba-inertia.tar.gz",
+      "digest": "sha256:7a84a35f2cae9002a4f79cfb41948fd632c68d3e585e65becf1f5c4ca8390ff7"
+    },
+    {
+      "name": "skills-visibility",
+      "description": "Publish a catalog of agent skills and make it discoverable to AI coding agents: the .well-known/agent-skills/index.json index, integrity digests, single-file vs multi-file vs bundle packaging, and every install method. Pushes back on pointing the index at raw GitHub URLs instead of a domain you control.",
+      "type": "skill-md",
+      "url": "https://evilmartians.com/agent-skills/skills-visibility/SKILL.md",
+      "digest": "sha256:a84c34f42c71353eed94133accd2c39bad787d3603f7e9bf8ff56fb99cfc1241"
+    },
+    {
+      "name": "secure-npm-package",
+      "description": "Release an npm package with no token left to steal: Trusted Publishing, provenance, and staged publishes from a single GitHub Actions workflow, plus click-by-click npmjs.com and GitHub settings with every URL resolved from your own package.json.",
+      "type": "skill-md",
+      "url": "https://evilmartians.com/agent-skills/secure-npm-package/SKILL.md",
+      "digest": "sha256:732f6f9f6272b408a42341ef4bfa8a2399a12f14e81b49a4fa19169a856e5036"
+    },
+    {
+      "name": "rails-boot-profiling",
+      "description": "Profile Rails boot time with require-profiler: find the slowest requires and initializers, catch boot-time YAML parsing and HTTP calls, deep-dive into stubborn files with Stackprof, and turn the findings into fixes that speed up your Rails app startup.",
+      "type": "skill-md",
+      "url": "https://evilmartians.com/agent-skills/rails-boot-profiling/SKILL.md",
+      "digest": "sha256:9132a8134df091b2dd7fab7e30939f520f78b0449d2bff62dada4f0fec100b7a"
+    },
+    {
+      "name": "tailwind-best-practices",
+      "description": "Writes and audits Tailwind CSS with the five practices that keep a fast-to-write codebase maintainable: design tokens over magic values, short and consistently ordered class lists, semantically grouped tokens, and fixed variants for design-system components instead of arbitrary className props.",
+      "type": "skill-md",
+      "url": "https://evilmartians.com/agent-skills/tailwind-best-practices/SKILL.md",
+      "digest": "sha256:27e8507dbaa212d4ffb770a8a989c6e9ecb45f0e37869796b33a05f80006bb40"
+    }
+  ]
+}

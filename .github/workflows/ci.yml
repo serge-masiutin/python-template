@@ -1,0 +1,32 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.3
+        env:
+          POSTGRES_USER: starter
+          POSTGRES_PASSWORD: starter
+          POSTGRES_DB: starter
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U starter" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: uv sync --frozen
+      - run: npm ci
+      - run: bin/ci
+      - run: uv run --frozen pytest
+        env:
+          TEST_POSTGRES: "1"
+          DATABASE_URL: postgresql://starter:starter@localhost:5432/starter
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:storybook
+      - run: npm run test:browser
+      - run: docker build -t python-template .

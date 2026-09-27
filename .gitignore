@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+node_modules/
+web/build/
+staticfiles/
+storybook-static/
+test-results/
+playwright-report/
+*.sqlite3
+tmp/
+.DS_Store

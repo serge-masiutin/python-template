@@ -1,0 +1,32 @@
+[project]
+name = "python-template"
+version = "0.1.0"
+description = "Django, Inertia and React application starter"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+  "django==6.1.1",
+  "inertia-django==2.0.0",
+  "django-vite==3.2.0",
+  "psycopg[binary]==3.3.6",
+  "gunicorn==26.2.0",
+  "whitenoise==6.12.0",
+]
+
+[dependency-groups]
+dev = ["ruff==0.16.9", "pytest-django==4.14.0"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings_test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+extend-exclude = [".agents", "third_party"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/migrations/*.py" = ["E501"]

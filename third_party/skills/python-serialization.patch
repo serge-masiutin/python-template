@@ -1,0 +1,209 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,46 +1,36 @@
+ ---
+-name: rails-serialization
+-description: Serialize explicit JSON boundaries in StarterApp Rails without leaking model data; keep entity, page, shared, loading, and consumer type contracts separate. Use for APIs, Native messages, and the existing trace viewer.
++name: python-serialization
++description: Serialize explicit JSON boundaries in Django and Inertia without leaking model data; keep entity, page, shared, loading, and consumer type contracts separate. Use for Inertia props and independent JSON APIs.
+ ---
+ 
+-# Rails Serialization
++# Python Serialization
+ 
+ Keep reusable entity shapes, page-specific responses, shared data, loading policy,
+-and consumer types separate. StarterApp renders ordinary pages as HTML. Use explicit
+-Ruby contracts at JSON boundaries.
++and consumer types separate. Django renders Inertia pages with explicit props. Use explicit Python DTOs at
++JSON boundaries and keep independent APIs separate.
+ 
+ ## Setup: Establish Whether Serialization Is Needed
+ 
+-For an ordinary Rails page, pass authorized records/view inputs to ERB/ViewComponent.
+-Do not create a serializer for every template. For a JSON consumer, inspect its schema,
+-authentication, access scope, content limits, and existing serializer before adding one.
+-`AgentTraceDocument` is the trace allowlist; preserve it instead of inventing a second
+-trace serializer that exposes raw model/provider payloads.
++Inspect the consumer, authorization scope, schema, content limits and existing DTOs.
++Inertia pages use explicit render(request, component, props=...). Reuse a small
++entity serializer only when its shape is shared. Django admin remains ordinary HTML.
++The starter does not include the Rails trace viewer or native client; do not invent
++those contracts or expose raw provider payloads as a replacement.
+ 
+ ## Entity Shape
+ 
+ Use a named small serializer/value object when the shape is reused. List fields rather
+-than calling unrestricted `as_json` on a model. Pass context explicitly where needed;
++than passing a model to an implicit JSON encoder. Pass context explicitly where needed;
+ serialization should not query, mutate, send notifications, or consult hidden global state.
+ 
+-```ruby
+-class ProjectSummary
+-  def initialize(project)
+-    @project = project
+-  end
+-
+-  def as_json(*)
+-    {
+-      id: @project.id,
+-      name: @project.name,
+-      updated_at: @project.updated_at.iso8601
+-    }
+-  end
+-end
++```python
++def project_summary(project):
++    return {"id": str(project.pk), "name": project.name,
++            "updated_at": project.updated_at.isoformat()}
+ ```
+ 
+-This is an illustrative feature object, not an existing StarterApp class. Confirm ID
+-representation and timestamp precision with the consumer contract. Preload associations
++This is an illustrative feature object, not an existing starter feature. Confirm ID
++representation and timestamp precision with the consumer contract. Use select_related/prefetch_related
+ in the query layer if the shape needs them; test collection growth for N+1.
+ 
+ ## Page-Specific Response
+@@ -49,48 +39,46 @@
+ filters, totals, and domain records distinct. Authorize and scope before serializing.
+ Don't let a serializer choose the actor's accessible collection implicitly.
+ 
+-```ruby
+-def index
+-  authorize! Project
+-  projects = authorized_scope(Project.all).order(:id).limit(50)
+-  render json: { projects: projects.map { |project| ProjectSummary.new(project).as_json } }
+-end
++```python
++@login_required
++def index(request):
++    projects = projects_visible_to(request.user).order_by("pk")[:50]
++    return render(request, "Projects/Index", props={
++        "projects": [project_summary(project) for project in projects],
++    })
+ ```
+ 
+ The example demonstrates a bounded shape, not a complete pagination API. A production
+ collection contract must define navigation/cursors and limits appropriate to the feature.
+-For HTML pages, use the standard ERB response instead of this JSON path.
++For independent APIs, return JsonResponse with the API’s explicit schema.
+ 
+ ## Shared Data
+ 
+-Shared layout information stays in Rails helpers/context. If a JS consumer truly needs
+-shared configuration, expose a minimal explicit allowlist with required/optional fields.
+-Do not serialize Current, the whole user, session tokens, or arbitrary settings.
+-Translation dictionaries are produced from Rails keys for the actual feature; there
+-is no second handwritten JS copy of the application's English strings.
++Share only the layout’s public contract. The starter provides auth, csrfToken and
++errors; Django messages appear separately in page.flash.messages. Do not expose
++password hashes, session identifiers, arbitrary settings or entire user models.
++The CSRF token is an intentional browser contract, not a session credential.
+ 
+ ## Explicit Rendering and Naming
+ 
+-There is no implicit `{Controller}{Action}Resource` lookup or automatic instance-variable
+-serialization in this project. Use explicit `render json:` or HTML rendering with
+-named inputs. Name the serializer by domain/consumer when that makes its purpose clear.
+-Keep page-only fields out of a reusable entity shape; use composition rather than
+-inventing a universal `ApplicationResource` abstraction with hidden behavior.
++There is no implicit resource lookup or instance-variable serialization. Use
++inertia.render(request, component, props=...) or JsonResponse explicitly. Keep
++INERTIA_JSON_ENCODER set to DjangoJSONEncoder: the adapter’s default encoder can
++serialize arbitrary models. A DTO must not query, mutate or infer authorization.
+ 
+ ## Types and Schema
+ 
+-Read `hotwire-contracts`. Define nullability, omitted fields, IDs, enums, date/time units,
+-array order, and schema/version. Test exactly the security-sensitive allowlist. A TypeScript
+-interface or Kotlin data class cannot validate arbitrary network JSON by itself.
+-No Alba/Typelizer generation is active; if later introduced, record the actual generator,
+-inputs, output directory, commands, and consumers and keep generation reproducible.
++Read inertia-python-typescript. Define IDs, nullability, omitted fields, enums,
++timestamp format and order. Update web/src/types.ts with the producer and tests.
++TypeScript annotations do not validate independent network JSON at runtime.
++No type generator is installed. If added, pin its inputs, command and consumers.
+ 
+ ## Loading Options
+ 
+ Read [loading-options.md](references/loading-options.md) for the complete mapping of
+ regular, optional, deferred/grouped, once/expiry, merge/deep-merge, always, and scroll
+ options. Loading belongs to the request/job/UI boundary, not a side effect of serializing
+-an attribute. Don't invent `defer:` or `once:` keyword APIs on plain Ruby serializers.
++an attribute. Use actual inertia helpers at the view boundary; do not add loading behavior to DTO fields.
+ 
+ ## Troubleshooting
+ 
+@@ -100,7 +88,7 @@
+ | Collection is slow | Serializer queries per item | Preload at query boundary, verify N+1 |
+ | Consumer missing field | Producer/consumer schema drift | Update both and test version compatibility |
+ | Null silently becomes empty | Undocumented default/optional chaining | Define optionality and reject malformed required input |
+-| “Resource not found” expectation | Copied Alba naming convention | Use actual explicit Rails render path |
++| “Resource not found” expectation | Copied implicit resource convention | Use explicit Django render call |
+ | Types never generated | Generator not installed/configured | Use actual contract; don't claim a nonexistent task |
+ | Stale or unauthorized cached JSON | Missing access/version scope | Recheck authorization and correct cache boundary |
+ 
+@@ -108,5 +96,5 @@
+ 
+ Verify exact allowlist where sensitive, access for guest/owner/foreign/admin as applicable,
+ malformed external input, collection size/query behavior, consumer parsing/compilation,
+-and backward compatibility for installed Native clients. Never include real secrets,
++and backward compatibility for published consumers. Never include real secrets,
+ user documents, prompt bodies, or raw traces in fixtures.
+--- original/references/loading-options.md
++++ adapted/references/loading-options.md
+@@ -1,31 +1,29 @@
+-# Loading Options at the Rails Boundary
++# Loading Options at the Django Boundary
++
++Import helpers from inertia; check the installed version before changing options.
+ 
+ | Loading requirement | Implementation | Contract |
+-| --- | --- | --- |
+-| Regular value | Query once and render current HTML/JSON | Required fields present and authorized |
+-| Lazy evaluation | Query only in the selected request branch | No hidden work while serializing unrelated fields |
+-| Optional | Separate explicit endpoint/frame | Direct requests authorize independently |
+-| Deferred | Eager source frame or persisted job result | Placeholder, loading, error, and ready states |
+-| Deferred group | One region/endpoint for related data | Related results arrive coherently |
+-| Once | Normal rendering, or a measured versioned server cache | Access/tenant/locale and invalidation considered |
+-| Once with expiry | Explicit cache freshness/expiry policy | Expiry doesn't replace authorization |
+-| Always | Essential layout/response fields | Minimal shared contract, not a global data dump |
+-| Merge/append | Stream append/update using stable IDs | Duplicate and ordering behavior explicit |
+-| Deep merge | Explicit domain update or fragment replacement | No generic recursive merge of untrusted input |
+-| Scroll | Bounded query, stable cursor, progressive list/frame | Reset on filter change; end/error/manual load |
+-| Reset | New query/list for changed filter | Stale in-flight responses don't reinsert old rows |
++|---|---|---|
++| Regular | Explicit DTO value | Authorized bounded shape |
++| Lazy | lambda returning safe props | Evaluated only if selected |
++| Optional | optional(lambda: values()) | Explicit partial request only |
++| Deferred | defer(lambda: values()) | Initial loading state and later request |
++| Deferred group | defer(..., group="analytics") | Grouped request; no cross-user sharing |
++| Once | once(lambda: values()) | Client reuse; not an authorization boundary |
++| Once with expiry | once(..., expires_at=60) | Seconds or datetime/timedelta in this adapter |
++| Always | always(lambda: value()) | Required even on partial reloads |
++| Merge | merge(..., match_on="id") | Stable IDs and bounded partial accumulation |
++| Deep merge | deep_merge(lambda: payload()) | Explicit nested contract |
++| Scroll | scroll(lambda: rows(), metadata) | pageName/currentPage/previousPage/nextPage |
++| Reset | router.reload({reset: ["rows"]}) | Clear accumulated rows when filters change |
+ 
+ ## Combining Options
+ 
+-For grouped deferred data that later grows, separate the concerns: one authorized frame
+-loads the initial group; pagination queries produce stable-ID rows; a stream appends them;
+-filter changes replace the list and reset its cursor. Keep these responsibilities explicit.
++Django defer accepts group, merge, deep_merge and match_on; optional accepts once
++options but not merge=True. A DTO does not own any of these flags. Authorize on
++every deferred/partial request and before every query.
+ 
+-For rarely changing reference data, first render it normally. If measurement warrants
+-caching, choose a key that includes relevant version/access/locale dimensions and a
+-deliberate expiry. Cache the correct representation at one layer. Clearing Turbo snapshots
+-does not expire Rails cache entries or revoke an exposed private payload.
+-
+-Long AI generation belongs in a job after commit, with persisted state and private
+-invalidation/delivery through the existing AnyCable system. Serialization only describes
+-the resulting authorized response; it must not start a model call while rendering.
++Keep cache keys scoped by access, tenant, version and locale where relevant.
++History encryption and client once reuse do not revoke already exposed data.
++Long provider calls belong in explicit operations, with a configured worker and
++persisted state if needed. This starter installs no queue, realtime or AI backend.

@@ -1,0 +1,322 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,176 +1,128 @@
+ ---
+-name: inertia-rails-testing
+-description: >-
+-  Testing Inertia Rails responses with RSpec and Minitest: component assertions, prop matching, flash verification,
+-  deferred props, and partial reload helpers. Use when writing controller specs, request specs, or integration tests
+-  for Inertia pages. ALWAYS use matchers (render_component, have_props, have_flash), NOT direct access
+-  (inertia.component, inertia.props). CRITICAL: after POST/PATCH/DELETE with redirect, MUST call follow_redirect!
+-  before asserting flash or props — without it you're asserting against the 302, not the Inertia page.
+-  Setup: require 'inertia_rails/rspec'.
++name: inertia-python-testing
++description: Test Django Inertia pages with pytest-django and Django Client. Verify components, safe props, redirects, one-use errors and messages, deferred and partial props, ownership, CSRF and asset versioning.
+ ---
+ 
+-# Inertia Rails Testing
++# Inertia Django Testing
+ 
+-Testing patterns for Inertia responses with RSpec and Minitest.
++Testing patterns for Django Client and pytest-django.
+ 
+-**For each controller action, verify:**
+-- **Correct component** → `render_component('users/index')`
+-- **Expected props** → `have_props(users: satisfy { ... })`
+-- **No leaked data** → `have_no_prop(:secret)`
+-- **Flash messages** → `follow_redirect!` then `have_flash(notice: '...')`
+-- **Deferred props** → `have_deferred_props(:analytics)`
+-
+-**Common mistake:** Forgetting `follow_redirect!` after PRG — without it, you're
+-asserting against the 302 redirect response, not the Inertia page that follows.
++For each view verify component, authorized props, sensitive field allowlists,
++mutation status, redirect destination, one-use messages/errors and loading rules.
++After a 303, request Location before inspecting page props. Use
++Client(enforce_csrf_checks=True) for mutation security tests; ordinary test clients
++skip CSRF. Test guest, owner and foreign-owner access.
+ 
+ ## Setup
+ 
+-```ruby
+-# spec/rails_helper.rb
+-require 'inertia_rails/rspec'
++```python
++# pyproject.toml already configures DJANGO_SETTINGS_MODULE for pytest-django.
++@pytest.mark.django_db
++def test_home(client, user):
++    client.force_login(user)
++    response = client.get("/", HTTP_X_INERTIA="true")
++    assert response.status_code == 200
++    assert response.json()["component"] == "Home"
+ ```
+ 
+-## RSpec Matchers
++## Response Assertions
+ 
+-| Matcher | Purpose |
+-|---------|---------|
+-| `be_inertia_response` | Verify response is Inertia format |
+-| `render_component('path')` | Check rendered component name |
+-| `have_props(key: value)` | Partial props match |
+-| `have_exact_props(key: value)` | Exact props match |
+-| `have_no_prop(:key)` | Assert prop absent |
+-| `have_flash(key: value)` | Partial flash match |
+-| `have_exact_flash(key: value)` | Exact flash match |
+-| `have_no_flash(:key)` | Assert flash absent |
+-| `have_deferred_props(:key)` | Check deferred props exist |
+-| `have_view_data(key: value)` | Partial view_data match |
++Use ordinary pytest assertions on response.status_code, headers and response.json().
++There are no Ruby matchers in inertia-django. Assert exact security-sensitive
++allowlists; assert selected fields for unrelated extensible page metadata.
+ 
+-## RSpec Examples
++## pytest Examples
+ 
+-**ALWAYS use matchers** (`render_component`, `have_props`, `have_flash`) instead of
+-direct property access (`inertia.component`, `inertia.props[:key]`):
+-
+-```ruby
+-# BAD — direct property access:
+-# expect(inertia.component).to eq('users/index')
+-# expect(inertia.props[:users].length).to eq(3)
+-
+-# GOOD — use matchers:
+-expect(inertia).to render_component('users/index')
+-expect(inertia).to have_props(users: satisfy { |u| u.length == 3 })
++```python
++page = response.json()
++assert page["component"] == "Home"
++assert set(page["props"]["auth"]["user"]) == {"id", "username", "admin"}
++assert "password" not in page["props"]["auth"]["user"]
+ ```
+ 
+-```ruby
+-# Key pattern: follow_redirect! after POST/PATCH/DELETE before asserting
+-it 'redirects with flash on success' do
+-  post users_path, params: { user: valid_params }
++```python
++response = client.post("/notes/", {"body": "A note"})
++assert response.status_code == 303
++page = client.get(response["Location"], HTTP_X_INERTIA="true").json()
++assert page["flash"]["messages"][0]["level"] == "success"
+ 
+-  expect(response).to redirect_to(users_path)
+-  follow_redirect!
+-  expect(inertia).to have_flash(notice: 'User created!')
+-end
+-
+-it 'returns validation errors on failure' do
+-  post users_path, params: { user: { name: '' } }
+-
+-  follow_redirect!
+-  expect(inertia).to have_props(errors: hash_including('name' => anything))
+-end
++response = client.post("/notes/", {"body": ""})
++assert response.status_code == 303
++page = client.get(response["Location"], HTTP_X_INERTIA="true").json()
++assert "body" in page["props"]["errors"]
++assert client.get("/", HTTP_X_INERTIA="true").json()["props"]["errors"] == {}
+ ```
+ 
+ ### Test Shared Props
+ 
+-Shared props from `inertia_share` are included in `inertia.props`. The `inertia`
+-helper is available in `type: :request` specs after requiring `inertia_rails/rspec`:
++Shared props from share(request, ...) appear in page["props"].
+ 
+-```ruby
+-it 'includes shared auth data' do
+-  sign_in(user)
+-  get dashboard_path
+-
+-  expect(inertia).to have_props(
+-    auth: hash_including(user: hash_including(id: user.id))
+-  )
+-end
++```python
++client.force_login(user)
++page = client.get("/", HTTP_X_INERTIA="true").json()
++assert page["props"]["auth"]["user"]["id"] == str(user.pk)
+ ```
+ 
+-```ruby
+-it 'excludes auth data for unauthenticated users' do
+-  get dashboard_path
+-
+-  expect(inertia).to have_props(auth: hash_including(user: nil))
+-end
++```python
++page = client.get("/login/", HTTP_X_INERTIA="true").json()
++assert page["props"]["auth"]["user"] is None
+ ```
+ 
+ ### Test Deferred Props
+ 
+-```ruby
+-it 'defers expensive analytics data' do
+-  get dashboard_path
+-
+-  expect(inertia).to have_deferred_props(:analytics, :statistics)
+-  expect(inertia).to have_deferred_props(:slow_data, group: :slow)
+-end
++```python
++page = client.get("/dashboard/", HTTP_X_INERTIA="true").json()
++assert page["deferredProps"]["default"] == ["analytics"]
++assert "analytics" not in page["props"]
+ ```
+ 
+ ### Partial Reload Helpers
+ 
+-```ruby
+-it 'supports partial reload' do
+-  get users_path
+-
+-  # Simulate partial reload — only fetch specific props
+-  inertia_reload_only(:users, :pagination)
+-
+-  # Or exclude specific props
+-  inertia_reload_except(:expensive_stats)
+-
+-  # Load deferred props
+-  inertia_load_deferred_props(:default)
+-  inertia_load_deferred_props # loads all groups
+-end
++```python
++response = client.get("/", HTTP_X_INERTIA="true",
++    HTTP_X_INERTIA_PARTIAL_COMPONENT="Home", HTTP_X_INERTIA_PARTIAL_DATA="notes")
++props = response.json()["props"]
++assert "notes" in props
++assert "auth" not in props
++assert "csrfToken" in props  # always prop
++# Deferred props use the same partial reload headers with the deferred keys.
+ ```
+ 
+-### Test External Redirects (inertia_location)
++### Test External Redirects (location)
+ 
+-```ruby
+-it 'redirects to Stripe via inertia_location' do
+-  post checkout_path
+-
+-  # inertia_location returns 409 with X-Inertia-Location header
+-  expect(response).to have_http_status(:conflict)
+-  expect(response.headers['X-Inertia-Location']).to match(/stripe\.com/)
+-end
++```python
++response = client.post("/checkout/", HTTP_X_INERTIA="true")
++assert response.status_code == 409
++assert response["X-Inertia-Location"] == expected_provider_url
+ ```
+ 
+-### NEVER Test These
++### Avoid False Confidence
+ 
+-- **Inertia framework behavior** — don't test that `<Form>` sends CSRF tokens or that `router.visit` works. Test YOUR controller logic.
+-- **Exact prop structure** — use `have_props(users: satisfy { ... })`, not deep equality on full JSON. Brittle tests break when you add a column.
+-- **Flash without `follow_redirect!`** — after POST/PATCH/DELETE with redirect, you MUST `follow_redirect!` before asserting flash or props. Without it you're asserting against the 302, not the page.
+-- **Deferred prop values on initial load** — deferred props are `nil` in the initial response because they're fetched in a separate request after page render. Use `have_deferred_props(:key)` to verify they're registered, or `inertia_load_deferred_props` to resolve them in tests.
+-- **Mocked Inertia responses** — use `type: :request` specs that exercise the full stack. `type: :controller` specs with `assigns` don't work because Inertia uses a custom render pipeline that only executes in the full request cycle.
++- Do not mock away the real Inertia middleware in request tests.
++- Do not inspect errors or messages on the redirect itself.
++- Deferred values are absent on initial load; request their keys separately.
++- Exercise CSRF and production database constraints as application integration contracts.
++- Pair partial reload tests with foreign-owner tests; data selection is not authorization.
++- Test form errors surviving an asset-version 409, then clearing after a successful GET.
+ 
+-### Direct Access (use matchers above when possible)
++### Direct Response Access
+ 
+-```ruby
+-inertia.component       # => 'users/index'
+-inertia.props           # => { users: [...] }
+-inertia.props[:users]   # direct prop access
+-inertia.flash           # => { notice: 'Created!' }
+-inertia.deferred_props  # => { default: [:analytics], slow: [:report] }
++```python
++page = response.json()
++component = page["component"]
++props = page["props"]
++flash = page["flash"]
++# Read deferredProps only for responses whose contract declares deferred props.
+ ```
+ 
+ ## Related Skills
+-- **Controller patterns** → `inertia-rails-controllers` (prop types, flash, PRG)
+-- **Form flows** → `inertia-rails-forms` (submission, validation)
+-- **Deferred/shared props** → `inertia-rails-pages` (Deferred, usePage)
++- **Controller patterns** → `inertia-python-controllers` (prop types, flash, PRG)
++- **Form flows** → `inertia-python-forms` (submission, validation)
++- **Deferred/shared props** → `inertia-python-pages` (Deferred, usePage)
+ 
+ ## References
+ 
+-**MANDATORY — READ ENTIRE FILE** when writing Minitest tests (not RSpec):
+-[`references/minitest.md`](references/minitest.md) (~40 lines) — Minitest assertions
+-equivalent to the RSpec matchers above.
++Read [Django TestCase equivalents](references/django-testcase.md) when working in
++a project that uses unittest-style assertions.
+ 
+-**Do NOT load** `minitest.md` for RSpec projects — the matchers above are all
+-you need.
++
+--- original/references/minitest.md
++++ adapted/references/django-testcase.md
+@@ -1,39 +1,30 @@
+-# Minitest Assertions for Inertia Rails
++# Django TestCase Assertions for Inertia
+ 
+ ## Setup
+ 
+-```ruby
+-# test/test_helper.rb
+-require 'inertia_rails/minitest'
+-```
++Use Django TestCase and the real middleware. Authentication uses force_login;
++CSRF-specific scenarios use Client(enforce_csrf_checks=True).
+ 
+ ## Assertions
+ 
+-| Assertion | Purpose |
+-|-----------|---------|
+-| `assert_inertia_response` | Verify Inertia response |
+-| `assert_inertia_component('path')` | Check component name |
+-| `assert_inertia_props(key: value)` | Partial props match |
+-| `assert_inertia_props_equal(key: value)` | Exact props match |
+-| `assert_no_inertia_prop(:key)` | Assert prop absent |
+-| `assert_inertia_flash(key: value)` | Partial flash match |
+-| `assert_inertia_flash_equal(key: value)` | Exact flash match |
+-| `assert_no_inertia_flash(:key)` | Assert flash absent |
+-| `assert_inertia_deferred_props(:key)` | Check deferred props |
++| Contract | Assertion |
++|---|---|
++| Status | self.assertEqual(response.status_code, 200) |
++| Component | self.assertEqual(response.json()["component"], "Home") |
++| Safe fields | self.assertEqual(set(user_props), {"id", "username", "admin"}) |
++| Redirect | Check status 303 and Location, then GET the destination |
++| Missing prop | self.assertNotIn("secret", response.json()["props"]) |
+ 
+ ## Example
+ 
+-```ruby
+-test 'renders users index' do
+-  get events_path
+-
+-  assert_inertia_response
+-  assert_inertia_component 'events/index'
+-  assert_inertia_props title: 'Rails World'
+-  assert_no_inertia_prop :secret
+-end
++```python
++class WorkspaceTests(TestCase):
++    def test_login_page(self):
++        response = self.client.get("/login/", HTTP_X_INERTIA="true")
++        self.assertEqual(response.status_code, 200)
++        self.assertEqual(response.json()["component"], "Login")
++        self.assertIsNone(response.json()["props"]["auth"]["user"])
+ ```
+ 
+-Partial reload and deferred prop helpers (`inertia_reload_only`,
+-`inertia_reload_except`, `inertia_load_deferred_props`) work the
+-same in both RSpec and Minitest.
++Deferred and partial prop requests use the same X-Inertia headers as the pytest
++examples in the parent skill; the protocol does not depend on the test framework.

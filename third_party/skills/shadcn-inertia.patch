@@ -1,0 +1,200 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,15 +1,33 @@
+ ---
+ name: shadcn-inertia
+ description: >-
+-  shadcn/ui component integration for Inertia Rails React (NOT Next.js): forms, dialogs, tables, toasts, dark mode,
++  shadcn/ui component integration for Inertia Django React (NOT Next.js): forms, dialogs, tables, toasts, dark mode,
+   command palette, and more. Use when building UI with shadcn/ui components in an Inertia app or adapting shadcn
+   examples from Next.js. NEVER react-hook-form/zod — wire shadcn inputs to Inertia Form via name attribute. Flash
+-  toasts require Rails flash_keys initializer config.
++  toasts require Django messages_keys initializer config.
+ ---
+ 
+-# shadcn/ui for Inertia Rails
++## Project Contract
+ 
+-shadcn/ui patterns adapted for Inertia.js + Rails + React. NOT Next.js.
++- Read config/settings.py, config/middleware.py, config/http.py and the caller first.
++  This repository uses inertia-django 2 and @inertiajs/react 3, with explicit page names.
++- Server examples below illustrate feature contracts, not preinstalled routes or models.
++  Django views return render(request, component, props=...). Never serialize a model
++  or QuerySet implicitly; build a bounded allowlist first.
++- Use trailing-slash Django routes. The starter mutations are POST endpoints; Django
++  does not automatically parse multipart PATCH/PUT bodies or Rails _method overrides.
++- Supply the shared csrfToken as X-CSRFToken for mutations; config/http.py validates
++  supported JSON or form bodies. A Form component alone does not configure Django CSRF.
++- Validation uses redirect-after-POST and one-use errors in shared props.
++  Messages use page.flash.messages, an array of {level, message}; there are no
++  notice/alert keys. See the actual web/src/types.ts contract.
++- Frontend-only Vue/Svelte references preserve upstream alternatives; this starter
++  installs React. Rails-only generators and implicit resource lookup do not apply.
++
++
++# shadcn/ui for Inertia Django
++
++shadcn/ui patterns adapted for Inertia.js + Django + React. NOT Next.js.
+ 
+ **Before using a shadcn example, ask:**
+ - **Does it use `react-hook-form` + `zod`?** → Replace with Inertia `<Form>` + `name` attributes. Inertia handles CSRF, errors, redirects, processing state — react-hook-form would fight all of this.
+@@ -36,12 +54,12 @@
+ ## Setup
+ 
+ `npx shadcn@latest init`. add `@/` resolve aliases to `tsconfig.json` if not present,
+-**Do NOT add `@/` resolve aliases to `vite.config.ts`** — `vite-plugin-ruby` already provides them.
++Keep Vite and TypeScript path aliases consistent with existing configuration; no Ruby Vite plugin is installed.
+ 
+ ## shadcn Inputs in Inertia `<Form>`
+ 
+ Use plain shadcn `Input`/`Label`/`Button` with `name` attributes inside Inertia `<Form>`.
+-See `inertia-rails-forms` skill for full `<Form>` API — this section covers shadcn-specific adaptation only.
++See `inertia-python-forms` skill for full `<Form>` API — this section covers shadcn-specific adaptation only.
+ 
+ **The key pattern:** Replace shadcn's `FormField`/`FormItem`/`FormMessage` with plain
+ components + manual error display:
+@@ -111,14 +129,14 @@
+ 
+ ## Toast with Flash Messages
+ 
+-Flash config (`flash_keys`) is in `inertia-rails-controllers`. Flash access
+-(`usePage().flash`) is in `inertia-rails-pages`. This section covers **toast UI wiring only**.
++Flash config (`Django messages`) is in `inertia-python-controllers`. Flash access
++(`usePage().flash`) is in `inertia-python-pages`. This section covers **toast UI wiring only**.
+ 
+ **MANDATORY — READ ENTIRE FILE** when implementing flash-based toasts with Sonner:
+ [`references/flash-toast.md`](references/flash-toast.md) (~80 lines) — full `useFlash`
+ hook and Sonner toast provider. **Do NOT load** if only reading flash values without toast UI.
+ 
+-Key gotcha: `flash_keys` in the Rails initializer MUST match your `FlashData`
++Key contract: the messages array exposed by inertia-django MUST match your `FlashData`
+ TypeScript type — do NOT use `success`/`error` unless you also update both.
+ 
+ ## Dark Mode (No next-themes)
+@@ -131,8 +149,8 @@
+ automatically; Inertia does NOT. Add an inline script in `<head>` (before React
+ hydrates) and call `initializeTheme()` in your Inertia entrypoint:
+ 
+-```erb
+-<%# app/views/layouts/application.html.erb — in <head>, before any stylesheets %>
++```html
++<!-- templates/base.html: in head, before stylesheets -->
+ <script>
+   document.documentElement.classList.toggle(
+     "dark",
+@@ -143,7 +161,7 @@
+ ```
+ 
+ ```tsx
+-// app/frontend/entrypoints/inertia.tsx
++// web/entrypoints/inertia.tsx
+ import { initializeTheme } from '@/hooks/use-appearance'
+ initializeTheme() // must run before createInertiaApp
+ ```
+@@ -162,10 +180,10 @@
+ | Flash of wrong theme (FOUC) | Missing inline `<script>` in `<head>` | Add dark mode script before stylesheets (see Dark Mode section) |
+ 
+ ## Related Skills
+-- **Form component** → `inertia-rails-forms` (`<Form>` render function, useForm)
+-- **Flash config** → `inertia-rails-controllers` (flash_keys initializer)
+-- **Flash access** → `inertia-rails-pages` (usePage().flash)
+-- **URL-driven dialogs** → `inertia-rails-pages` (router.get pattern)
++- **Form component** → `inertia-python-forms` (`<Form>` render function, useForm)
++- **Flash config** → `inertia-python-controllers` (Django messages initializer)
++- **Flash access** → `inertia-python-pages` (usePage().flash)
++- **URL-driven dialogs** → `inertia-python-pages` (router.get pattern)
+ 
+ ## References
+ 
+--- original/references/components.md
++++ adapted/references/components.md
+@@ -1,6 +1,6 @@
+ # shadcn/ui Components for Inertia — Extended Reference
+ 
+-Additional component patterns adapted for Inertia.js + Rails.
++Additional component patterns adapted for Inertia.js + Django.
+ 
+ ## Table of Contents
+ 
+--- original/references/flash-toast.md
++++ adapted/references/flash-toast.md
+@@ -1,33 +1,29 @@
+ # Flash Toast with Sonner
+ 
+-Full-stack flash toast: Rails flash_keys config + useFlash hook + Sonner.
++Full-stack flash toast: Django messages + useFlash hook + Sonner.
+ 
+-Use `notice` for success and `alert` for error — these are the standard Rails flash keys
+-and match the default `FlashData` type. No need to add custom keys for success/error messaging.
++Use messages.success or messages.error on the server. Each public message is a
++{level, message} entry in page.flash.messages. Keep FlashData aligned.
+ 
+-## Rails Setup
++## Django Setup
+ 
+-Configure which flash keys are exposed to the client:
++The adapter reads Django message storage:
+ 
+-```ruby
+-# config/initializers/inertia_rails.rb
+-InertiaRails.configure do |config|
+-  config.flash_keys = %i[notice alert]
+-end
++```python
++# SessionMiddleware and MessageMiddleware precede InertiaMiddleware.
++# No flash_keys configuration: page.flash.messages contains level/message records.
+ ```
+ 
+-Use `notice:` for success and `alert:` for errors — do NOT manually pass `inertia: { flash: ... }`:
++Use the Django messages API; do not duplicate messages in props:
+ 
+-```ruby
+-def create
+-  @user = User.new(user_params)
+-  if @user.save
+-    redirect_to users_path, notice: "User created!"
+-  else
+-    redirect_back fallback_location: new_user_path, alert: "Failed to create user",
+-      inertia: { errors: @user.errors.to_hash }
+-  end
+-end
++```python
++def create(request):
++    form = UserForm(form_input(request, fields={"name", "email"}))
++    if not form.is_valid():
++        return invalid_form(request, form, destination="user-new")
++    create_user(actor=request.user, **form.cleaned_data)
++    messages.success(request, "User created")
++    return redirect_303("users")
+ ```
+ 
+ ## useFlash Hook
+@@ -35,14 +31,16 @@
+ **Important:** `toast` is imported from `'sonner'` (the package), NOT from `@/components/ui/sonner` (that only exports `Toaster`).
+ 
+ ```tsx
+-// app/frontend/hooks/use-flash.ts
++// web/hooks/use-flash.ts
+ import { router, usePage } from '@inertiajs/react'
+ import { useEffect, useRef } from 'react'
+ import { toast } from 'sonner' // NOT from '@/components/ui/sonner'
+ 
+ function showFlash(flash: FlashData) {
+-  if (flash.alert) toast.error(flash.alert)
+-  if (flash.notice) toast(flash.notice)
++  for (const item of flash.messages ?? []) {
++    if (item.level === "error") toast.error(item.message)
++    else toast(item.message)
++  }
+ }
+ 
+ export function useFlash() {
+@@ -71,7 +69,7 @@
+ Use in persistent layout (runs once, covers all pages):
+ 
+ ```tsx
+-// app/frontend/layouts/persistent-layout.tsx
++// web/layouts/persistent-layout.tsx
+ import { Toaster } from 'sonner'
+ import { useFlash } from '@/hooks/use-flash'
+ 

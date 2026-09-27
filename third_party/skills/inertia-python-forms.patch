@@ -1,0 +1,267 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,16 +1,36 @@
+ ---
+-name: inertia-rails-forms
++name: inertia-python-forms
+ description: >-
+-  Full-stack form handling for Inertia Rails: create, edit, delete, multi-step wizard, and file upload
++  Full-stack form handling for Inertia Django: create, edit, delete, multi-step wizard, and file upload
+   forms with validation errors and progress tracking. React examples inline; Vue and Svelte equivalents
+   in references. Use when building any form, handling file uploads, multi-step forms, client-side validation,
+-  or wiring form submission to Rails controllers. NEVER react-hook-form. Use `<Form>` for simple forms,
++  or wiring form submission to Django views. NEVER react-hook-form. Use `<Form>` for simple forms,
+   useForm for dynamic/programmatic control.
+ ---
+ 
+-# Inertia Rails Forms
+-
+-Full-stack form handling for Inertia.js + Rails.
++## Project Contract
++
++- Read config/settings.py, config/middleware.py, config/http.py and the caller first.
++  This repository uses inertia-django 2 and @inertiajs/react 3, with explicit page names.
++- Server examples below illustrate feature contracts, not preinstalled routes or models.
++  Django views return render(request, component, props=...). Never serialize a model
++  or QuerySet implicitly; build a bounded allowlist first.
++- Use trailing-slash Django routes. The starter mutations are POST endpoints; Django
++  does not automatically parse multipart PATCH/PUT bodies or Rails _method overrides.
++- Supply the shared csrfToken as X-CSRFToken for mutations; config/http.py validates
++  supported JSON or form bodies. A Form component alone does not configure Django CSRF.
++  Do not also configure automatic XSRF injection for the same header: the client
++  can append both values, producing a token Django rejects.
++- Validation uses redirect-after-POST and one-use errors in shared props.
++  Messages use page.flash.messages, an array of {level, message}; there are no
++  notice/alert keys. See the actual web/src/types.ts contract.
++- Frontend-only Vue/Svelte references preserve upstream alternatives; this starter
++  installs React. Rails-only generators and implicit resource lookup do not apply.
++
++
++# Inertia Django Forms
++
++Full-stack form handling for Inertia.js + Django.
+ 
+ **Before building a form, ask:**
+ - **Simple create/edit?** → `<Form>` component (no state management needed)
+@@ -20,7 +40,7 @@
+ - **Multi-step wizard, dynamic fields (add/remove inputs), or form data
+   shared with sibling components (e.g., live preview panel)?** → `useForm` hook
+ - **Tempted by react-hook-form?** → Don't. Inertia's `<Form>` already handles CSRF
+-  tokens, redirect following, error mapping from Rails, processing state, file upload
++  tokens, redirect following, error mapping from Django, processing state, file upload
+   detection, and history state. react-hook-form would duplicate or fight all of this.
+ 
+ **When NOT to use `<Form>` or `useForm`:**
+@@ -32,7 +52,7 @@
+ - Pass `data={...}` to `<Form>` — it has no `data` prop. Data comes from input `name` attributes automatically. `data` is a `useForm` concept.
+ - Use `useForm` for simple create/edit — `<Form>` handles these without state management. Reserve `useForm` for multi-step wizards, dynamic add/remove fields, or form data shared with sibling components.
+ - Use controlled `value=` instead of `defaultValue` on inputs — controlled inputs bypass `<Form>`'s dirty tracking, making `isDirty` always `false`.
+-- Omit `value="1"` on checkboxes — without it, the browser submits `"on"` and Rails won't cast to boolean correctly.
++- Define checkbox values deliberately; Django BooleanField accepts browser checkbox input. Missing unchecked values are part of the form contract.
+ - Call `useForm` inside a loop or conditional — it's a hook (React rules apply). Create one form instance per logical form.
+ 
+ ## `<Form>` Component (Preferred)
+@@ -113,8 +133,8 @@
+ - Checkbox/radio → `defaultChecked`
+ - Select → `defaultValue` on `<select>`
+ 
+-> Checkbox without explicit `value` submits `"on"` — set `value="1"` so Rails
+-> casts to boolean correctly.
++> Django BooleanField accepts browser checkbox values. Validate on the server;
++> do not infer permissions from a submitted checkbox.
+ 
+ ```tsx
+ <Form method="patch" action={`/posts/${post.id}`}>
+@@ -258,12 +278,12 @@
+ | Used `useForm` for file upload with preview | `onChange` + `useState` mistaken for "programmatic data manipulation" | `<Form>` + `useState` for preview UI. `useForm` is only needed when form *submission data* must live in React state (multi-step, dynamic add/remove fields). File preview is local UI state, not form data |
+ 
+ ## Related Skills
+-- **Server-side PRG & errors** → `inertia-rails-controllers` (redirect_back, to_hash, flash)
++- **Server-side PRG & errors** → `inertia-python-controllers` (redirect_303, Form errors, Django messages)
+ - **shadcn inputs** → `shadcn-inertia` (Input/Select adaptation, toast UI)
+-- **Page props typing** → `inertia-rails-typescript` (`type Props` not `interface`, TS2344)
++- **Page props typing** → `inertia-python-typescript` (`type Props` not `interface`, TS2344)
+ 
+ **MANDATORY — READ ENTIRE FILE** when handling file uploads with image preview,
+-Active Storage, or direct uploads:
++configured Django storage, or direct uploads:
+ [`references/file-uploads.md`](references/file-uploads.md) (~200 lines) — image preview
+-with `<Form>`, Active Storage integration, direct upload setup, multiple files,
++with `<Form>`, configured Django storage integration, direct upload setup, multiple files,
+ and progress tracking.
+--- original/references/advanced-forms.md
++++ adapted/references/advanced-forms.md
+@@ -1,6 +1,6 @@
+ # Advanced Form Patterns
+ 
+-Advanced form handling for Inertia.js + Rails + React.
++Advanced form handling for Inertia.js + Django + React.
+ 
+ ## Table of Contents
+ 
+@@ -127,7 +127,7 @@
+ 
+ ## Nested Data
+ 
+-Rails accepts nested attributes via strong parameters. Structure
++Django requires explicit parsing and Form validation for nested JSON. Structure
+ your form data to match.
+ 
+ ### With `useForm`:
+@@ -162,14 +162,16 @@
+ </Form>
+ ```
+ 
+-Rails controller:
+-```ruby
+-def user_params
+-  params.require(:user).permit(
+-    :name, :email,
+-    address_attributes: [:street, :city, :zip]
+-  )
+-end
++Django view:
++```python
++class ProfileForm(forms.Form):
++    name = forms.CharField(max_length=100)
++    email = forms.EmailField()
++    street = forms.CharField(max_length=200)
++    city = forms.CharField(max_length=100)
++    zip = forms.CharField(max_length=20)
++# Flatten input names, or explicitly parse nested JSON into separate Forms.
++# Django does not turn user[address_attributes][city] into a nested dict automatically.
+ ```
+ 
+ ## Multiple Forms on One Page
+@@ -316,7 +318,7 @@
+   setStep(s => s + 1)
+ }
+ 
+-// Single POST at the end — Rails sees one standard action
++// Single POST at the end — Django receives one standard action
+ const submit = (e: React.FormEvent) => {
+   e.preventDefault()
+   form.post('/onboarding')
+@@ -347,7 +349,7 @@
+ ```
+ 
+ Tags must match `cacheTags` set on `<Link prefetch cacheTags="...">` — see
+-`inertia-rails-pages` navigation reference for prefetch tag setup.
++`inertia-python-pages` navigation reference for prefetch tag setup.
+ 
+ ## Client-Side Validation
+ 
+@@ -371,4 +373,3 @@
+   form.post('/register')
+ }
+ ```
+-```
+--- original/references/file-uploads.md
++++ adapted/references/file-uploads.md
+@@ -1,13 +1,13 @@
+ # File Uploads
+ 
+-File upload handling for Inertia.js + Rails with Active Storage.
++File upload handling for Inertia.js + Django with configured Django storage.
+ 
+ ## Table of Contents
+ 
+ - [Basic Upload with Form Component](#basic-upload-with-form-component)
+ - [Upload with useForm](#upload-with-useform)
+ - [Progress Tracking](#progress-tracking)
+-- [Active Storage Backend](#active-storage-backend)
++- [configured Django storage Backend](#active-storage-backend)
+ - [Multiple Files](#multiple-files)
+ - [Image Preview](#image-preview)
+ - [Direct Uploads](#direct-uploads)
+@@ -88,28 +88,35 @@
+ }
+ ```
+ 
+-## Active Storage Backend
+-
+-```ruby
+-# app/controllers/avatars_controller.rb
+-class AvatarsController < ApplicationController
+-  def create
+-    current_user.avatar.attach(params[:avatar])
+-    redirect_to profile_path, notice: "Avatar uploaded!"
+-  end
+-end
+-
+-# app/models/user.rb
+-class User < ApplicationRecord
+-  has_one_attached :avatar
+-end
++## configured Django storage Backend
++
++```python
++class AvatarForm(forms.Form):
++    avatar = forms.FileField()
++
++    def clean_avatar(self):
++        upload = self.cleaned_data["avatar"]
++        if upload.size > 2 * 1024 * 1024:
++            raise forms.ValidationError("Use a file smaller than 2 MiB")
++        return upload
++
++@require_POST
++@login_required
++def upload_avatar(request):
++    form = AvatarForm(request.POST, request.FILES)
++    if not form.is_valid():
++        return invalid_form(request, form, destination="profile")
++    # Storage and content verification belong to an implemented upload boundary.
++    store_verified_avatar(actor=request.user, upload=form.cleaned_data["avatar"])
++    messages.success(request, "Avatar uploaded")
++    return redirect_303("profile")
+ ```
+ 
+ Strong parameters for files:
+-```ruby
+-def user_params
+-  params.require(:user).permit(:name, :email, :avatar)
+-end
++```python
++form = AvatarForm(request.POST, request.FILES)
++# Authenticate, enforce count/size limits, verify content and isolate untrusted files.
++# File extension and browser Content-Type alone do not establish safety.
+ ```
+ 
+ ## Multiple Files
+@@ -126,14 +133,16 @@
+ </Form>
+ ```
+ 
+-Rails side:
+-```ruby
+-def create
+-  params[:documents].each do |doc|
+-    current_user.documents.attach(doc)
+-  end
+-  redirect_to documents_path, notice: "#{params[:documents].size} files uploaded"
+-end
++Django side:
++```python
++uploads = request.FILES.getlist("documents")
++if not 1 <= len(uploads) <= 10:
++    return HttpResponseBadRequest("Upload between one and ten documents")
++# Validate each upload before storing any. Define cleanup for partial storage failures.
++validated = [validate_document(upload) for upload in uploads]
++store_documents(actor=request.user, uploads=validated)
++messages.success(request, "Documents uploaded")
++return redirect_303("documents")
+ ```
+ 
+ ## Image Preview
+@@ -168,8 +177,8 @@
+ 
+ ## Direct Uploads
+ 
+-For large files, use Active Storage direct uploads to upload directly
+-to the storage service (S3, GCS) instead of through the Rails server.
++For large files, use configured Django storage direct uploads to upload directly
++to the storage service (S3, GCS) instead of through the Django server.
+ 
+ ```tsx
+ import { DirectUpload } from '@rails/activestorage'

@@ -1,0 +1,254 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,13 +1,33 @@
+ ---
+-name: inertia-rails-pages
++name: inertia-python-pages
+ description: >-
+   Page components, persistent layouts, Link/router navigation, Head, Deferred, WhenVisible, InfiniteScroll,
+-  and URL-driven state for Inertia Rails. React examples inline; Vue and Svelte equivalents in references.
++  and URL-driven state for Inertia Django. React examples inline; Vue and Svelte equivalents in references.
+   Use when building pages, adding navigation, implementing persistent layouts, infinite scroll, lazy-loaded
+   sections, or working with client-side Inertia APIs (router.reload, router.replaceProp, prefetching).
+ ---
+ 
+-# Inertia Rails Pages
++## Project Contract
++
++- Read config/settings.py, config/middleware.py, config/http.py and the caller first.
++  This repository uses inertia-django 2 and @inertiajs/react 3, with explicit page names.
++- Server examples below illustrate feature contracts, not preinstalled routes or models.
++  Django views return render(request, component, props=...). Never serialize a model
++  or QuerySet implicitly; build a bounded allowlist first.
++- Use trailing-slash Django routes. The starter mutations are POST endpoints; Django
++  does not automatically parse multipart PATCH/PUT bodies or Rails _method overrides.
++- Supply the shared csrfToken as X-CSRFToken for mutations; config/http.py validates
++  supported JSON or form bodies. A Form component alone does not configure Django CSRF.
++  Do not also configure automatic XSRF injection for the same header: the client
++  can append both values, producing a token Django rejects.
++- Validation uses redirect-after-POST and one-use errors in shared props.
++  Messages use page.flash.messages, an array of {level, message}; there are no
++  notice/alert keys. See the actual web/src/types.ts contract.
++- Frontend-only Vue/Svelte references preserve upstream alternatives; this starter
++  installs React. Rails-only generators and implicit resource lookup do not apply.
++
++
++# Inertia Django Pages
+ 
+ Page components, layouts, navigation, and client-side APIs.
+ 
+@@ -56,7 +76,7 @@
+ 
+ Default layout in entrypoint:
+ ```tsx
+-// app/frontend/entrypoints/inertia.tsx
++// web/entrypoints/inertia.tsx
+ resolve: async (name) => {
+   const page = await pages[`../pages/${name}.tsx`]()
+   page.default.layout ??= (page: React.ReactNode) => <AppLayout>{page}</AppLayout> // default if not set
+@@ -127,14 +147,17 @@
+ **NEVER** use `useState` + `useEffect` to sync URL ↔ dialog/tab/filter state.
+ The server is the single source of truth — the component just reads props.
+ 
+-```ruby
+-# Step 1: Controller reads params, passes as prop
+-def index
+-  render inertia: {
+-    users: User.all,
+-    selected_user_id: params[:user_id]&.to_i
+-  }
+-end
++```python
++class SelectionForm(forms.Form):
++    user_id = forms.IntegerField(required=False, min_value=1)
++
++form = SelectionForm(request.GET)
++if not form.is_valid():
++    return HttpResponseBadRequest("Invalid selection")
++return render(request, "Users/Index", props={
++    "users": user_summaries(users_visible_to(request.user)),
++    "selected_user_id": form.cleaned_data["user_id"],
++})
+ ```
+ 
+ ```tsx
+@@ -179,7 +202,7 @@
+ 
+ ## Shared Props
+ 
+-Shared props (auth, flash) are typed globally via InertiaConfig (see `inertia-rails-typescript` skill) — page components only type their OWN props:
++Shared props (auth, flash) are typed globally via InertiaConfig (see `inertia-python-typescript` skill) — page components only type their OWN props:
+ 
+ ```tsx
+ type Props = {
+@@ -189,7 +212,7 @@
+ 
+ export default function Index({ users }: Props) {
+   const { props, flash } = usePage()
+-  // props.auth typed via InertiaConfig, flash.notice typed via InertiaConfig
++  // props.auth typed via InertiaConfig, flash.messages typed via InertiaConfig
+   return <UserList users={users} />
+ }
+ ```
+@@ -197,11 +220,11 @@
+ ## Flash Access
+ 
+ **Flash is top-level on the page object, NOT inside props** — this is the #1
+-flash mistake. Flash config is in `inertia-rails-controllers`; toast UI is in `shadcn-inertia`.
++flash mistake. Flash config is in `inertia-python-controllers`; toast UI is in `shadcn-inertia`.
+ 
+ ```tsx
+ // BAD:  usePage().props.flash   ← WRONG, flash is not in props
+-// GOOD: usePage().flash         ← flash.notice, flash.alert
++// GOOD: usePage().flash         ← flash.messages, flash.messages
+ ```
+ 
+ ## `<Deferred>` Component
+@@ -236,7 +259,7 @@
+ ## `<InfiniteScroll>` Component
+ 
+ Automatic infinite scroll — loads next pages as user scrolls down. Pairs with
+-`InertiaRails.scroll` on the server (see `inertia-rails-controllers`):
++`scroll` on the server (see `inertia-python-controllers`):
+ 
+ ```tsx
+ import { InfiniteScroll } from '@inertiajs/react'
+@@ -279,10 +302,10 @@
+ | Scroll jumps to top after form submit | Missing `preserveScroll` | Add `preserveScroll: true` to the visit or form options |
+ 
+ ## Related Skills
+-- **Flash config** → `inertia-rails-controllers` (flash_keys)
++- **Flash config** → `inertia-python-controllers` (Django messages)
+ - **Flash toast UI** → `shadcn-inertia` (Sonner + useFlash)
+-- **Shared props typing** → `inertia-rails-typescript` (InertiaConfig)
+-- **Deferred server-side** → `inertia-rails-controllers` (InertiaRails.defer)
++- **Shared props typing** → `inertia-python-typescript` (InertiaConfig)
++- **Deferred server-side** → `inertia-python-controllers` (defer)
+ - **URL-driven dialogs** → `shadcn-inertia` (Dialog component)
+ 
+ ## Vue / Svelte
+--- original/references/layouts.md
++++ adapted/references/layouts.md
+@@ -54,7 +54,7 @@
+ to declare it individually:
+ 
+ ```tsx
+-// app/frontend/entrypoints/inertia.tsx
++// web/entrypoints/inertia.tsx
+ createInertiaApp({
+   resolve: async (name) => {
+     const pages = import.meta.glob('../pages/**/*.tsx', { eager: false })
+@@ -108,7 +108,7 @@
+ with `usePage()`:
+ 
+ ```tsx
+-// app/frontend/layouts/app-layout.tsx
++// web/layouts/app-layout.tsx
+ import { usePage, Link } from '@inertiajs/react'
+ 
+ export function AppLayout({ children }: { children: React.ReactNode }) {
+@@ -125,7 +125,7 @@
+ 
+       <main>{children}</main>
+ 
+-      {flash.notice && <Toast>{flash.notice}</Toast>}
++      {flash.messages?.map((item, index) => <Toast key={index}>{item.message}</Toast>)}
+     </div>
+   )
+ }
+--- original/references/navigation.md
++++ adapted/references/navigation.md
+@@ -76,16 +76,14 @@
+ 
+ ### From the Server (CRITICAL)
+ 
+-Use `inertia_location` for external URLs. **NEVER use `redirect_to`
++Use `location` for external URLs. **NEVER use `redirect`
+ for URLs outside the Inertia app** — it breaks because Inertia tries
+ to handle the redirect as an Inertia response.
+ 
+-```ruby
+-# Correct — triggers full page visit
+-inertia_location "https://stripe.com/checkout/session_xxx"
+-
+-# WRONG — breaks Inertia
+-redirect_to "https://stripe.com/checkout/session_xxx"
++```python
++from inertia import location
++return location(verified_checkout_url)
++# A regular 302 external redirect during an Inertia visit is not the protocol contract.
+ ```
+ 
+ ### From the Client
+--- original/references/svelte.md
++++ adapted/references/svelte.md
+@@ -56,7 +56,7 @@
+ ### Default Layout in createInertiaApp
+ 
+ ```ts
+-// app/frontend/entrypoints/inertia.ts
++// web/entrypoints/inertia.ts
+ import AppLayout from '@/layouts/AppLayout.svelte'
+ 
+ createInertiaApp({
+@@ -105,7 +105,7 @@
+ <script lang="ts">
+   import { page } from '@inertiajs/svelte'
+   // $page.props.auth — typed via InertiaConfig
+-  // $page.flash.notice — typed via InertiaConfig
++  // $page.flash.messages — typed via InertiaConfig
+ </script>
+ 
+ <span>{$page.props.auth.user?.name}</span>
+@@ -132,18 +132,18 @@
+ ```svelte
+ <script lang="ts">
+   import { page } from '@inertiajs/svelte'
+-  // GOOD: $page.flash.notice
++  // GOOD: $page.flash.messages
+   // BAD:  $page.props.flash  ← WRONG
+ </script>
+ 
+-{#if $page.flash.notice}
+-  <div class="alert">{$page.flash.notice}</div>
+-{/if}
++{#each $page.flash.messages ?? [] as item}
++  <div class="alert">{item.message}</div>
++{/each}
+ ```
+ 
+ ## Shared Props
+ 
+-Typed globally via InertiaConfig (see `inertia-rails-typescript`). Page
++Typed globally via InertiaConfig (see `inertia-python-typescript`). Page
+ components only type their own props:
+ 
+ ```svelte
+--- original/references/vue.md
++++ adapted/references/vue.md
+@@ -53,7 +53,7 @@
+ ### Default Layout in createInertiaApp
+ 
+ ```ts
+-// app/frontend/entrypoints/inertia.ts
++// web/entrypoints/inertia.ts
+ import AppLayout from '@/layouts/AppLayout.vue'
+ 
+ createInertiaApp({
+@@ -147,14 +147,14 @@
+ import { usePage } from '@inertiajs/vue3'
+ 
+ const page = usePage()
+-// GOOD: page.flash.notice
++// GOOD: page.flash.messages
+ // BAD:  page.props.flash  ← WRONG
+ </script>
+ ```
+ 
+ ## Shared Props
+ 
+-Typed globally via InertiaConfig (see `inertia-rails-typescript`). Page
++Typed globally via InertiaConfig (see `inertia-python-typescript`). Page
+ components only type their own props:
+ 
+ ```vue

@@ -1,0 +1,846 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,115 +1,103 @@
+ ---
+-name: inertia-rails-controllers
+-description: >-
+-  ALWAYS `render inertia: { key: data }` to pass data as props — instance variables are NOT auto-passed
+-  (only alba-inertia does that). Rails controller patterns for Inertia.js: render inertia, prop types
+-  (defer, optional, merge, scroll), shared data, flash, PRG redirects, validation errors. Use when
+-  writing controllers that load data, display records, or serve Inertia responses. CRITICAL: external
+-  URLs (Stripe/OAuth) MUST use inertia_location, NEVER redirect_to.
++name: inertia-python-controllers
++description: Django views for Inertia and React with explicit rendering, safe props, shared data, deferred/partial loading, session errors, Django messages, 303 redirects, CSRF and authorization. Use for changing page responses or mutation contracts.
+ ---
+ 
+-# Inertia Rails Controllers
+-
+-Server-side patterns for Rails controllers serving Inertia responses.
++## Project Contract
++
++- Read config/settings.py, config/middleware.py, config/http.py and the caller first.
++  This repository uses inertia-django 2 and @inertiajs/react 3, with explicit page names.
++- Server examples below illustrate feature contracts, not preinstalled routes or models.
++  Django views return render(request, component, props=...). Never serialize a model
++  or QuerySet implicitly; build a bounded allowlist first.
++- Use trailing-slash Django routes. The starter mutations are POST endpoints; Django
++  does not automatically parse multipart PATCH/PUT bodies or Rails _method overrides.
++- Supply the shared csrfToken as X-CSRFToken for mutations; config/http.py validates
++  supported JSON or form bodies. A Form component alone does not configure Django CSRF.
++  Do not also configure automatic XSRF injection for the same header: the client
++  can append both values, producing a token Django rejects.
++- Validation uses redirect-after-POST and one-use errors in shared props.
++  Messages use page.flash.messages, an array of {level, message}; there are no
++  notice/alert keys. See the actual web/src/types.ts contract.
++- Frontend-only Vue/Svelte references preserve upstream alternatives; this starter
++  installs React. Rails-only generators and implicit resource lookup do not apply.
++
++
++# Inertia Django Controllers
++
++Server-side patterns for Django views serving Inertia responses.
+ 
+ **Before adding a prop, ask:**
+-- **Needed on every page?** → `inertia_share` in a base controller (`InertiaController`), not a per-action prop
+-- **Expensive to compute?** → `InertiaRails.defer` — page loads fast, data streams in after
+-- **Only needed on partial reload?** → `InertiaRails.optional` — skipped on initial load
+-- **Reference data that rarely changes?** → `InertiaRails.once` — cached across navigations
++- **Needed on every page?** → `share(request, ...)` in a base controller (`InertiaController`), not a per-action prop
++- **Expensive to compute?** → `defer` — page loads fast, data streams in after
++- **Only needed on partial reload?** → `optional` — skipped on initial load
++- **Reference data that rarely changes?** → `once` — cached across navigations
+ 
+ **NEVER:**
+-- Use `redirect_to` for external URLs (Stripe, OAuth, SSO) — it returns 302 but the Inertia client tries to parse the response as JSON, causing a broken redirect. Use `inertia_location` (returns 409 + `X-Inertia-Location` header).
+-- Use `errors.full_messages` for validation errors — it produces flat strings without field keys, so errors can't be mapped to the corresponding input fields on the frontend. Use `errors.to_hash(true)`.
+-- Use `inertia.defer`, `Inertia.defer`, or `inertia_rails.defer` — the correct syntax is `InertiaRails.defer { ... }`. All prop helpers are module methods on the `InertiaRails` constant.
+-- Assume instance variables are auto-passed as props — they are NOT (unless `alba-inertia` gem is configured). Every action that passes props to the frontend MUST call `render inertia: { key: data }`.
+-- Use `success`/`error` as flash keys without updating `config.flash_keys` — Rails defaults to `notice`/`alert`. Custom keys must be added to both the initializer config and the `FlashData` TypeScript type.
++- Redirect an Inertia request to an external provider with an ordinary 302; use location.
++- Flatten form errors into an unkeyed list; preserve field names.
++- Serialize arbitrary model attributes or infer a page from a view name.
++- Assume React Form configures Django CSRF or body parsing automatically.
+ 
+ ## Render Syntax
+ 
+-> **`default_render: true` TRAP:** This setting only auto-infers the component
+-> name from controller/action — it does **NOT** auto-pass instance variables as
+-> props. Writing `@posts = Post.all` in an action with `default_render: true`
+-> renders the correct component but sends **zero data** to the frontend.
+-> Instance variables are only auto-serialized as props when `alba-inertia` gem
+-> is configured — check `Gemfile` before relying on this. Without it, you MUST
+-> use `render inertia: { posts: data }` to pass any data to the page.
+->
+-> Empty actions (`def index; end`) are correct ONLY for pages that need no data
+-> (e.g., a static dashboard page, a login form). If the action queries the
+-> database, it MUST call `render inertia:` with data.
+-
+-| Situation | Syntax | Component path |
+-|-----------|--------|----------------|
+-| Action loads data | `render inertia: { users: data }` | Inferred from controller/action |
+-| Action loads NO data (static page) | Empty action or `render inertia: {}` | Inferred from controller/action |
+-| Rendering a different page | `render inertia: 'errors/show', props: { error: e }` | Explicit path |
+-
+-**Rule of thumb:** If your action touches the database, it MUST call `render inertia:` with data.
+-If the action body is empty, the page receives only shared props (from `inertia_share`).
+-
+-```ruby
+-# CORRECT — data passed as props
+-def index
+-  render inertia: { users: users_data, stats: InertiaRails.defer { ExpensiveQuery.run } }
+-end
+-
+-# CORRECT — static page, no data needed
+-def index; end
+-
+-# WRONG — @posts is NEVER sent to the frontend (without alba-inertia)
+-def index
+-  @posts = Post.all
+-end
+-```
+-
+-> **Note:** If the project uses the `alba-inertia` gem (check `Gemfile`), instance
+-> variables are auto-serialized as props and explicit `render inertia:` is not needed.
+-> See the `alba-inertia` skill for that convention.
++Django views always return an explicit response. Use
++`render(request, "Users/Index", props={"users": safe_users})` for a data page
++and `render(request, "About", props={})` for a static page.
++There is no default_render option or automatic instance-variable serialization.
++
++```python
++from inertia import render, defer
++
++def index(request):
++    return render(request, "Users/Index", props={
++        "users": users_data(request.user),
++        "stats": defer(lambda: expensive_stats(request.user)),
++    })
++
++# Even static pages require an explicit HttpResponse.
++def about(request):
++    return render(request, "About", props={})
++```
+ 
+ ## Prop Types
+ 
+-**`InertiaRails.defer`** — NOT `inertia.defer`, NOT `Inertia.defer`. All prop helpers are module methods on `InertiaRails`.
++Import helpers from inertia. Call them with values or zero-argument callables.
+ 
+ | Type | Syntax | Behavior |
+-|------|--------|----------|
+-| Regular | `{ key: value }` | Always evaluated, always included |
+-| Lazy | `-> { expensive_value }` | Included on initial page render, lazily evaluated on partial reloads |
+-| Optional | `InertiaRails.optional { ... }` | Only evaluated on partial reload requesting it |
+-| Defer | `InertiaRails.defer { ... }` | Loaded after initial page render |
+-| Defer (grouped) | `InertiaRails.defer(group: 'name') { ... }` | Grouped deferred — fetched in parallel |
+-| Once | `InertiaRails.once { ... }` | Resolved once, remembered across navigations |
+-| Merge | `InertiaRails.merge { ... }` | Appended to existing array (infinite scroll) |
+-| Deep merge | `InertiaRails.deep_merge { ... }` | Deep merged into existing object |
+-| Always | `InertiaRails.always { ... }` | Included even in partial reloads |
+-| Scroll | `InertiaRails.scroll { ... }` | Scroll-aware prop for infinite scroll |
+-
+-```ruby
+-def index
+-  render inertia: {
+-    filters: filter_params,
+-    messages: -> { messages_scope.as_json },
+-    stats: InertiaRails.defer { Dashboard.stats },
+-    chart: InertiaRails.defer(group: 'analytics') { Dashboard.chart },
+-    countries: InertiaRails.once { Country.pluck(:name, :code) },
+-    posts: InertiaRails.merge { @posts.as_json },
+-    csrf: InertiaRails.always { form_authenticity_token },
+-  }
+-end
++|---|---|---|
++| Regular | `{"key": value}` | Evaluated before render; selected props included |
++| Lazy | `lambda: expensive_value()` | Evaluated only when selected |
++| Optional | `optional(lambda: value())` | Requested partial reloads only |
++| Deferred | `defer(lambda: value(), group="analytics")` | Loaded in a later request |
++| Once | `once(lambda: value(), expires_at=60)` | Client reuse with explicit expiry |
++| Merge | `merge(lambda: values(), match_on="id")` | Partial response accumulation |
++| Deep merge | `deep_merge(lambda: value())` | Partial nested merge |
++| Always | `always(lambda: value())` | Included even on partial reloads |
++| Scroll | `scroll(lambda: rows(), metadata)` | Pagination metadata for InfiniteScroll |
++
++```python
++return render(request, "Messages/Index", props={
++    "filters": validated_filters,
++    "messages": lambda: message_summaries(messages_scope),
++    "stats": defer(lambda: dashboard_stats(actor=request.user)),
++    "chart": defer(lambda: dashboard_chart(actor=request.user), group="analytics"),
++    "countries": once(lambda: list(Country.objects.values("name", "code"))),
++    "posts": merge(lambda: post_summaries(posts_scope), match_on="id"),
++    "csrfToken": always(lambda: get_token(request)),
++})
+ ```
+ 
+ ### Deferred Props — Full Stack Example
+ 
+ Server defers slow data, client shows fallback then swaps in content:
+ 
+-```ruby
+-# Controller
+-def show
+-  render inertia: {
+-    basic_stats: Stats.quick_summary,
+-    analytics: InertiaRails.defer { Analytics.compute_slow },
+-  }
+-end
++```python
++def show(request):
++    return render(request, "Dashboard", props={
++        "basic_stats": quick_summary(request.user),
++        "analytics": defer(lambda: compute_analytics(request.user)),
++    })
+ ```
+ 
+ ```tsx
+@@ -135,27 +123,23 @@
+ 
+ ## Shared Data
+ 
+-Use `inertia_share` in controllers — it needs controller context (`current_user`,
+-request). The initializer only handles `config.*` settings (version, flash_keys).
+-
+-```ruby
+-class ApplicationController < ActionController::Base
+-  # Static
+-  inertia_share app_name: 'MyApp'
+-
+-  # Using lambdas (most common)
+-  inertia_share auth: -> { { user: current_user&.as_json(only: [:id, :name, :email, :role]) } }
+-
+-  # Conditional
+-  inertia_share if: :user_signed_in? do
+-    { notifications: -> { current_user.unread_notifications_count } }
+-  end
+-end
++Use `share(request, ...)` in controllers — it needs controller context (`current_user`,
++request). The initializer only handles `config.*` settings (version, Django messages).
++
++```python
++def shared_props(get_response):
++    def middleware(request):
++        user = user_summary(request.user) if request.user.is_authenticated else None
++        share(request, app_name="MyApp", auth={"user": user})
++        if request.user.is_authenticated:
++            share(request, notifications=lambda: unread_count(request.user))
++        return get_response(request)
++    return middleware
+ ```
+ 
+ Lambda and action-scoped variants are in [`references/configuration.md`](references/configuration.md).
+ 
+-**Evaluation order:** Multiple `inertia_share` calls merge top-down. If a child
++**Evaluation order:** Multiple `share(request, ...)` calls merge top-down. If a child
+ controller shares the same key as a parent, the child's value wins. Block and lambda
+ shares are lazily evaluated per-request — they don't run for non-Inertia requests.
+ 
+@@ -163,104 +147,98 @@
+ 
+ Flash is automatic. Configure exposed keys if needed:
+ 
+-```ruby
+-# config/initializers/inertia_rails.rb
+-InertiaRails.configure do |config|
+-  config.flash_keys = %i[notice alert toast] # default: %i[notice alert]
+-end
+-```
+-
+-Use standard Rails flash in controllers:
+-```ruby
+-redirect_to users_path, notice: "User created!"
+-# or
+-flash.alert = "Something went wrong"
+-redirect_to users_path
++```python
++# Django SessionMiddleware and MessageMiddleware precede InertiaMiddleware.
++# Public messages become {"messages": [{"level": "success", "message": "Created"}]}.
++# There is no Django messages_keys setting.
++```
++
++Use standard Django messages in controllers:
++```python
++messages.success(request, "User created")
++return redirect_303("users")
++# For a public error message: messages.error(request, "Could not complete this action").
+ ```
+ 
+ ## Redirects & Validation Errors
+ 
+-After create/update/delete, always redirect (Post-Redirect-Get). Standard Rails
+-`redirect_to` works. The Inertia-specific part is validation error handling:
+-
+-```ruby
+-def create
+-  @user = User.new(user_params)
+-  if @user.save
+-    redirect_to users_path, notice: "Created!"
+-  else
+-    redirect_back_or_to new_user_path, inertia: { errors: @user.errors.to_hash(true) }
+-  end
+-end
+-```
+-
+-**`to_hash` vs `to_hash(true)`:** `to_hash` gives `{ name: ["can't be blank"] }`,
+-`to_hash(true)` gives `{ name: ["Name can't be blank"] }`. Keys must match input
+-`name` attributes — mismatched keys mean errors won't display next to the right field.
+-
+-**NEVER use `errors.full_messages`** — it produces flat strings without field keys,
+-so errors can't be mapped to the corresponding input fields on the frontend.
++After create/update/delete, return 303 through redirect_303. Validation errors
++are stored for the redirected GET; malformed body structure returns 400:
++
++```python
++@require_POST
++@login_required
++def create(request):
++    form = UserForm(form_input(request, fields={"name", "email"}))
++    if not form.is_valid():
++        return invalid_form(request, form, destination="user-new")
++    create_user(actor=request.user, **form.cleaned_data)
++    messages.success(request, "Created")
++    return redirect_303("users")
++```
++
++The starter maps each form field to its first error string, including `__all__`
++for non-field errors. Keys must match input names and the TypeScript errorValueType.
++Render non-field errors in a visible form-level region.
+ 
+ ## Authorization as Props
+ 
+ Pass permissions as per-resource `can` hash — frontend controls visibility,
+-server enforces access. See `inertia-rails-controllers` + `inertia-rails-pages` skills.
++server enforces access. See `inertia-python-controllers` + `inertia-python-pages` skills.
+ 
+ **MANDATORY — READ ENTIRE FILE** when implementing authorization props:
+ [`references/authorization.md`](references/authorization.md) (~40 lines) — full-stack
+-`can` pattern with Action Policy/Pundit/CanCanCan examples.
++`can` pattern with explicit Django policies.
+ 
+ **Do NOT load** if not passing permission data to the frontend.
+ 
+-## External Redirects (`inertia_location`)
+-
+-**CRITICAL:** `redirect_to` for external URLs breaks Inertia — the client
++## External Redirects (`location`)
++
++**CRITICAL:** `redirect` for external URLs breaks Inertia — the client
+ receives a 302 but tries to handle it as an Inertia response (JSON), not a
+-full page redirect. `inertia_location` returns 409 with `X-Inertia-Location`
++full page redirect. `location` returns 409 with `X-Inertia-Location`
+ header, which tells the client to do `window.location = url`.
+ 
+-```ruby
+-# Stripe checkout — MUST use inertia_location, not redirect_to
+-def create
+-  checkout_session = Current.user.payment_processor.checkout(
+-    mode: "payment",
+-    line_items: "price_xxx",
+-    success_url: enrollments_url,
+-    cancel_url: course_url(@course),
+-  )
+-  inertia_location checkout_session.url
+-end
+-```
+-
+-Use `inertia_location` for any URL outside the Inertia app: payment
++```python
++from inertia import location
++
++@require_POST
++@login_required
++def checkout(request):
++    session = payment_provider.create_checkout(actor=request.user)
++    # Validate an external destination against the provider contract, never raw input.
++    return location(session.url)
++```
++
++Use `location` for any URL outside the Inertia app: payment
+ providers, OAuth, external services.
+ 
+ ## History Encryption
+ 
+-Encrypts page data in browser history state — `config.encrypt_history = Rails.env.production?`.
+-Use `redirect_to path, inertia: { clear_history: true }` on logout/role change.
++Encrypts page data in browser history state — `INERTIA_ENCRYPT_HISTORY = not DEBUG`.
++Call `inertia.http.clear_history(request)` on logout/role change.
+ Full setup with server-side and client-side examples is in
+ [`references/configuration.md`](references/configuration.md).
+ 
+ ## Configuration
+ 
+ See [`references/configuration.md`](references/configuration.md) for all
+-`InertiaRails.configure` options (version, encrypt_history, flash_keys, etc.).
++Django INERTIA_* settings options (version, encrypt_history, Django messages, etc.).
+ 
+ ## Troubleshooting
+ 
+ | Symptom | Cause | Fix |
+ |---------|-------|-----|
+-| 302 loop on Stripe/OAuth redirect | `redirect_to` for external URL | Use `inertia_location` — it returns 409 + `X-Inertia-Location` header |
+-| Errors don't display next to fields | Error keys don't match input `name` | `to_hash` keys must match input `name` attributes exactly |
+-| TS2305: `postsPath` not found in `@/routes` | js-routes not regenerated after adding routes | Run `rails js_routes:generate` after changing `config/routes.rb` |
++| 302 loop on Stripe/OAuth redirect | `redirect` for external URL | Use `location` — it returns 409 + `X-Inertia-Location` header |
++| Errors don't display next to fields | Error keys don't match input `name` | Form error keys must match input `name` attributes exactly |
++| Frontend route mismatch | URL differs from urls.py | Update callers and route smoke tests together; no route generator is installed |
+ 
+ ## Related Skills
+-- **Form error display** → `inertia-rails-forms`
+-- **Flash toast UI** → `inertia-rails-pages` (access) + `shadcn-inertia` (Sonner)
+-- **Deferred on client** → `inertia-rails-pages` (`<Deferred>` component)
+-- **Type-safe props** → `inertia-rails-typescript` or `alba-inertia` (serializers)
+-- **Testing** → `inertia-rails-testing`
++- **Form error display** → `inertia-python-forms`
++- **Flash toast UI** → `inertia-python-pages` (access) + `shadcn-inertia` (Sonner)
++- **Deferred on client** → `inertia-python-pages` (`<Deferred>` component)
++- **Type-safe props** → `inertia-python-typescript` or `python-serialization` (serializers)
++- **Testing** → `inertia-python-testing`
+ 
+ ## References
+ 
+@@ -273,5 +251,5 @@
+ usage — the table above is sufficient.
+ 
+ Load [`references/configuration.md`](references/configuration.md) (~180 lines) only when
+-setting up `InertiaRails.configure` for the first time or debugging configuration
++setting up Django INERTIA_* settings for the first time or debugging configuration
+ issues. **Do NOT load** for routine controller work.
+--- original/references/authorization.md
++++ adapted/references/authorization.md
+@@ -5,17 +5,16 @@
+ 
+ ## Controller Pattern
+ 
+-```ruby
+-def show
+-  @user = User.find(params[:id])
+-  render inertia: {
+-    user: @user.as_json(only: [:id, :name, :email]),
+-    can: {
+-      edit: allowed_to?(:edit?, @user),
+-      delete: allowed_to?(:destroy?, @user),
+-    },
+-  }
+-end
++```python
++@login_required
++def show(request, user_id):
++    user = get_object_or_404(users_visible_to(request.user), pk=user_id)
++    return render(request, "Users/Show", props={
++        "user": user_summary(user),
++        "can": {"edit": can_edit(actor=request.user, user=user),
++                "delete": can_delete(actor=request.user, user=user)},
++    })
++# Repeat authorization on every mutation; these booleans only control presentation.
+ ```
+ 
+ ## Frontend Pattern
+@@ -36,4 +35,4 @@
+ 
+ - **Always enforce server-side** — `can` props control UI visibility, not access. The `update`/`destroy` actions must independently authorize.
+ - **Per-record, not global** — pass `can` per resource, not a blanket `isAdmin` flag. A user may edit their own profile but not others.
+-- **Default to Action Policy** — examples use `allowed_to?(:edit?, @user)` from [Action Policy](https://actionpolicy.evilmartians.io/). For projects already using Pundit (`policy(@user).edit?`) or CanCanCan (`can?(:edit, @user)`), use those instead.
++- **Explicit Django policies** — use model permissions for model-wide access and owner/tenant-scoped queries for records. Add object policies as explicit functions; Django core does not implement object permissions merely because an object is passed to has_perm.
+--- original/references/configuration.md
++++ adapted/references/configuration.md
+@@ -1,4 +1,4 @@
+-# Inertia Rails Configuration
++# Inertia Django Configuration
+ 
+ ## Table of Contents
+ 
+@@ -14,29 +14,14 @@
+ 
+ ## Initializer
+ 
+-```ruby
+-# config/initializers/inertia_rails.rb
+-InertiaRails.configure do |config|
+-  # Asset version — triggers full page reload when assets change
+-  config.version = ViteRuby.digest
+-
+-  # Flash keys exposed to client (default: %i[notice alert])
+-  config.flash_keys = %i[notice alert toast]
+-
+-  # Encrypt browser history state (default: false)
+-  config.encrypt_history = Rails.env.production?
+-
+-  # Always include errors hash in response (default: false)
+-  config.always_include_errors_hash = true # true will be default in the next major release
+-
+-  # Deep merge shared data instead of shallow merge (default: false)
+-  config.deep_merge_shared_data = false
+-
+-  # Component path resolver (default: infers from controller/action)
+-  config.component_path_resolver = ->(path:, action:) {
+-    "#{path}/#{action}"
+-  }
+-end
++```python
++# config/settings.py
++from django.core.serializers.json import DjangoJSONEncoder
++INERTIA_LAYOUT = "base.html"
++INERTIA_VERSION = os.environ["ASSET_VERSION"]
++INERTIA_ENCRYPT_HISTORY = not DEBUG
++INERTIA_JSON_ENCODER = DjangoJSONEncoder
++# All page names and safe props are passed explicitly to render().
+ ```
+ 
+ ## Version Tracking
+@@ -44,33 +29,22 @@
+ Inertia uses version tracking to detect asset changes and trigger
+ full page reloads when the frontend bundle changes.
+ 
+-```ruby
+-# With ViteRuby (recommended)
+-config.version = ViteRuby.digest
+-
+-# With Propshaft
+-config.version = Rails.application.config.assets.version
+-
+-# Manual version string
+-config.version = '1.0.0'
+-
+-# Lambda (evaluated per request)
+-config.version = -> { Rails.application.config.asset_version }
++```python
++# Production release identifier, changed with frontend assets.
++INERTIA_VERSION = os.environ["ASSET_VERSION"]
+ ```
+ 
+ ## Flash Keys
+ 
+-Controls which Rails flash keys are exposed to the Inertia client.
++Django messages are emitted as page.flash.messages; only put public text into messages.
+ 
+-```ruby
+-# Default: only notice and alert
+-config.flash_keys = %i[notice alert]
+-
+-# Add custom keys
+-config.flash_keys = %i[notice alert toast]
++```python
++# Django messages are exposed automatically. Message bodies must be public.
++messages.success(request, "Saved")
++messages.error(request, "Could not save")
+ ```
+ 
+-Access on client: `usePage().flash.notice`, `usePage().flash.alert`, etc.
++Access on client: `usePage().flash.messages`, an optional array of {level, message}.
+ 
+ ## History Encryption
+ 
+@@ -80,18 +54,20 @@
+ **Enable in production only** — encryption can cause issues with HMR and
+ hot-reloading in development:
+ 
+-```ruby
+-config.encrypt_history = Rails.env.production?
++```python
++INERTIA_ENCRYPT_HISTORY = not DEBUG
+ ```
+ 
+ **Clear history** on logout to prevent back-button access to authenticated pages:
+ 
+-```ruby
+-# Server-side — triggers client to clear encrypted history
+-def destroy
+-  sign_out(current_user)
+-  redirect_to root_path, inertia: { clear_history: true }
+-end
++```python
++from django.contrib.auth import logout
++from inertia.http import clear_history
++
++def sign_out(request):
++    logout(request)
++    clear_history(request)
++    return redirect_303("login")
+ ```
+ 
+ ```tsx
+@@ -105,31 +81,26 @@
+ 
+ ## Error Handling
+ 
+-```ruby
+-# Always include errors hash (even when empty)
+-config.always_include_errors_hash = true
++```python
++# Shared middleware owns the one-request validation error lifecycle.
++share(request, errors=always(lambda: request.session.pop("form_errors", {})))
++# The starter preserves errors if an asset-version mismatch requires a fresh visit.
+ ```
+ 
+ Custom error page for non-Inertia requests:
+-```ruby
+-# app/controllers/application_controller.rb
+-rescue_from ActiveRecord::RecordNotFound do |e|
+-  if request.inertia?
+-    render inertia: 'errors/not-found', props: { message: e.message }, status: 404
+-  else
+-    render file: Rails.public_path.join('404.html'), status: 404
+-  end
+-end
++```python
++def not_found(request, exception):
++    # Use a generic public message; do not expose database identifiers or exceptions.
++    return render(request, "Errors/NotFound", props={"message": "Not found"}, status=404)
++# Register handler404 in urls.py only after implementing the React page.
+ ```
+ 
+ ## SSR Configuration
+ 
+-```ruby
+-# config/initializers/inertia_rails.rb
+-InertiaRails.configure do |config|
+-  config.ssr_enabled = true
+-  config.ssr_url = "http://localhost:13714"
+-end
++```python
++# Only enable after deploying and testing an actual SSR entrypoint/service.
++INERTIA_SSR_ENABLED = True
++INERTIA_SSR_URL = "http://localhost:13714"
+ ```
+ 
+ Vite SSR setup:
+@@ -137,7 +108,6 @@
+ // vite.config.ts
+ export default defineConfig({
+   plugins: [
+-    ruby(),
+     react(),
+     tailwindcss(),
+   ],
+--- original/references/prop-types.md
++++ adapted/references/prop-types.md
+@@ -19,12 +19,12 @@
+ 
+ Always included in the initial page response. Wrap in `-> {}` to skip evaluation during partial reloads that don't request them.
+ 
+-```ruby
+-render inertia: {
+-  filters: { search: params[:search], sort: params[:sort] },
+-  users: -> { User.where(active: true).as_json(only: [:id, :name, :email]) },
+-  total_count: -> { User.active.count },
+-}
++```python
++return render(request, "Users/Index", props={
++    "filters": validated_filters,
++    "users": lambda: [user_summary(user) for user in active_users],
++    "total_count": lambda: active_users.count(),
++})
+ ```
+ 
+ With `router.reload({ only: ['filters'] })`, `users` and `total_count` are never evaluated.
+@@ -36,13 +36,12 @@
+ Only evaluated when explicitly requested via partial reload headers.
+ Saves computation on initial page load.
+ 
+-```ruby
+-render inertia: {
+-  users: User.active.as_json(only: [:id, :name]),
+-  # Only computed when client requests it
+-  export_data: InertiaRails.optional { User.active.to_csv },
+-  detailed_stats: InertiaRails.optional { Analytics.compute_detailed },
+-}
++```python
++return render(request, "Users/Index", props={
++    "users": [user_summary(user) for user in active_users],
++    "detailed_stats": optional(lambda: detailed_stats(actor=request.user)),
++})
++# Stream CSV through a separate authorized download endpoint, not a page prop.
+ ```
+ 
+ Client requests optional props with `router.reload`:
+@@ -56,18 +55,13 @@
+ Loaded automatically after the initial page render. The page loads fast
+ with a placeholder, then deferred data streams in.
+ 
+-```ruby
+-render inertia: {
+-  # Fast — included in initial response
+-  course: @course.as_json(only: [:id, :title, :description]),
+-
+-  # Slow — loaded after page renders
+-  reviews: InertiaRails.defer { @course.reviews.includes(:user).as_json },
+-
+-  # Grouped — fetched together in a single request
+-  chart_data: InertiaRails.defer(group: 'analytics') { Analytics.chart_for(@course) },
+-  engagement: InertiaRails.defer(group: 'analytics') { Analytics.engagement_for(@course) },
+-}
++```python
++return render(request, "Courses/Show", props={
++    "course": course_summary(course),
++    "reviews": defer(lambda: review_summaries(course.reviews.select_related("user"))),
++    "chart_data": defer(lambda: chart_for(course), group="analytics"),
++    "engagement": defer(lambda: engagement_for(course), group="analytics"),
++})
+ ```
+ 
+ React side with `<Deferred>`:
+@@ -82,13 +76,12 @@
+ Resolved once per session, remembered across navigations.
+ Use for reference data that rarely changes.
+ 
+-```ruby
+-render inertia: {
+-  # Fetched once, cached across navigations
+-  countries: InertiaRails.once { Country.pluck(:name, :code) },
+-  timezones: InertiaRails.once { ActiveSupport::TimeZone::MAPPING.keys },
+-  roles: InertiaRails.once { User::ROLES },
+-}
++```python
++return render(request, "Courses/Index", props={
++    "countries": once(lambda: list(Country.objects.values("name", "code"))),
++    "timezones": once(lambda: sorted(available_timezones())),
++})
++# Do not cache access decisions with once; always reauthorize at the server.
+ ```
+ 
+ ## Merge Props
+@@ -99,30 +92,16 @@
+ When merging arrays, you may use the `match_on` parameter to match existing items
+ by a specific field and update them instead of appending new ones.
+ 
+-For **infinite scroll**, prefer `InertiaRails.scroll` (see [Scroll Props](#scroll-props))
++For **infinite scroll**, prefer `scroll` (see [Scroll Props](#scroll-props))
+ which handles scroll-aware loading automatically. Use `merge` for patterns where
+ data accumulates from user actions or background updates:
+ 
+-```ruby
+-# Activity log — poll or ActionCable triggers router.reload({ only: ['activities'] })
+-render inertia: {
+-  activities: InertiaRails.merge { @recent_activities.as_json },
+-}
+-
+-# Chat / live feed — new messages appended via partial reload
+-# update existing ones by id
+-render inertia: {
+-  messages: InertiaRails.merge(match_on: 'id')) { @messages.as_json(only: [:id, :body, :created_at]) },
+-}
+-
+-# Nested data
+-InertiaRails.merge(append: 'data', match_on: 'data.id') { post_data }
+-
+-# Same as above, but using a hash shortcut...
+-InertiaRails.merge(append: { data: 'id' }) { post_data }
+-
+-# Multiple properties with different match fields
+-InertiaRails.merge(append: { 'users.data' => 'id', 'messages' => 'uuid', }) { complex_data }
++```python
++return render(request, "Feed", props={
++    "messages": merge(lambda: message_summaries(messages_scope), match_on="id"),
++    "posts": merge(lambda: post_page(), append="data", match_on="data.id"),
++})
++# merge/deep_merge only affect partial reloads. Use stable IDs and bounded windows.
+ ```
+ 
+ Client-side, `router.reload({ only: ['messages'] })` fetches the new batch
+@@ -137,13 +116,11 @@
+ Included even in partial reloads (which normally only include
+ requested props). Use sparingly for data that must always be fresh.
+ 
+-```ruby
+-render inertia: {
+-  users: User.all.as_json,
+-  # Always included, even when client requests only: ['users']
+-  csrf: InertiaRails.always { form_authenticity_token },
+-  version: InertiaRails.always { Rails.application.config.version },
+-}
++```python
++return render(request, "Users/Index", props={
++    "users": lambda: user_summaries(users_scope),
++    "csrfToken": always(lambda: get_token(request)),
++})
+ ```
+ 
+ ## Scroll Props
+@@ -151,36 +128,19 @@
+ Scroll-aware props for infinite scroll. Combines with `<InfiniteScroll>` on the
+ client to automatically load more data as the user scrolls down.
+ 
+-**Check the project's pagy version** before writing pagination code — the API
+-changed significantly in v42. Check `Gemfile.lock` for the installed version.
+-
+-```ruby
+-# Pagy v42+ syntax
+-class PostsController < ApplicationController
+-  include Pagy::Method
+-
+-  def index
+-    pagy, posts = pagy(:offset, Post.order(created_at: :desc), limit: 20)
+-    # For cursor-based: pagy, posts = pagy(:keyset, Post.order(:id), limit: 20)
+-
+-    render inertia: {
+-      posts: InertiaRails.scroll(pagy) { posts.as_json(only: [:id, :title, :body]) },
+-    }
+-  end
+-end
+-
+-# Pagy pre-v42 syntax (if project uses older version)
+-class PostsController < ApplicationController
+-  include Pagy::Backend
+-
+-  def index
+-    pagy, posts = pagy(Post.order(created_at: :desc), limit: 20)
+-
+-    render inertia: {
+-      posts: InertiaRails.scroll(pagy) { posts.as_json(only: [:id, :title, :body]) },
+-    }
+-  end
+-end
++Use django.core.paginator.Paginator and the installed scroll signature.
++
++```python
++from django.core.paginator import Paginator
++page = Paginator(posts_scope.order_by("-created_at", "-pk"), 20).get_page(request.GET.get("page", 1))
++return render(request, "Posts/Index", props={
++    "posts": scroll(
++        lambda: [post_summary(post) for post in page.object_list],
++        {"pageName": "page", "currentPage": page.number,
++         "previousPage": page.previous_page_number() if page.has_previous() else None,
++         "nextPage": page.next_page_number() if page.has_next() else None},
++    ),
++})
+ ```
+ 
+ React side with `<InfiniteScroll>`:
+@@ -235,29 +195,15 @@
+ 
+ Prop helpers accept keyword arguments that layer behaviours together:
+ 
+-```ruby
+-render inertia: {
+-  # Deferred + merge — loads after initial render, then accumulates on subsequent reloads
+-  notifications: InertiaRails.defer(merge: true) {
+-    current_user.notifications.recent.as_json
+-  },
+-
+-  # Deferred + merge in a group — multiple props fetched together, both accumulate
+-  posts: InertiaRails.defer(group: 'feed', merge: true) {
+-    @posts.as_json(only: [:id, :title, :body])
+-  },
+-  comments: InertiaRails.defer(group: 'feed', merge: true) {
+-    @comments.as_json(only: [:id, :post_id, :body])
+-  },
+-
+-  # Optional + merge — only fetched on demand, appends to existing data
+-  activity_log: InertiaRails.optional(merge: true) {
+-    @activities.as_json
+-  },
+-}
++```python
++return render(request, "Feed", props={
++    "posts": defer(lambda: post_summaries(posts_scope), group="feed", merge=True, match_on="id"),
++    "comments": defer(lambda: comment_summaries(comments_scope), group="feed", merge=True, match_on="id"),
++})
++# optional() accepts once options, not merge=True. Do not invent that combination.
+ ```
+ 
+ The `merge: true` flag works on `defer`, `optional`, and `always`. It tells
+ Inertia to append results to the existing client-side array on partial reloads
+-instead of replacing it — the same behaviour as `InertiaRails.merge`, but
++instead of replacing it — the same behaviour as `merge`, but
+ combined with another prop type.

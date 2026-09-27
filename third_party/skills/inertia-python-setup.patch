@@ -1,0 +1,272 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,120 +1,67 @@
+ ---
+-name: inertia-rails-setup
+-description: >-
+-  One-time project initializer for Inertia Rails skills. Detects stack and frontend framework
+-  (React/Vue/Svelte) from Gemfile and package.json, offers to install recommended deps
+-  (alba-inertia, js-routes, pagy, shadcn), and generates a CLAUDE.md section that configures
+-  which skill patterns apply. Use when first installing these skills, bootstrapping a new
+-  Inertia Rails project, or when the stack changes.
++name: inertia-python-setup
++description: Detect and align Django, inertia-django, React, TypeScript, Vite, PostgreSQL and Storybook when bootstrapping or changing this starter. Preserve configured dependencies and add only missing capabilities required by the task.
+ ---
+ 
+-# Inertia Rails Project Setup
++# Inertia Django Project Setup
+ 
+-Detect stack, offer recommended deps, generate CLAUDE.md configuration.
++Detect the existing stack, fill concrete gaps, update the repository contract.
++Run once per project and after a deliberate stack change.
+ 
+-**Run once per project.** Re-run when the stack changes.
+-
+-**NEVER:**
+-- Run setup without `inertia_rails` gem in Gemfile — all skills assume it exists. If missing, tell the user to install it first.
+-- Overwrite existing `## Inertia Rails Stack` in CLAUDE.md without reading it — the user may have manual customizations. Replace only the auto-generated block.
+-- Add `@/` resolve aliases to `vite.config.ts` — `vite-plugin-ruby` already provides them. Only add to `tsconfig.json`.
+-- Recommend `alba-inertia` if the project uses `jbuilder` AND the user hasn't expressed interest in switching — suggest it, but don't push. You CAN still suggest it if the project has `blueprinter` (alba is a direct upgrade path).
+-- Generate CLAUDE.md blocks for skills the user doesn't have installed — saying "alba-inertia skill does NOT apply" is correct; saying "use alba-inertia" when the gem is absent is wrong.
++**Never** overwrite configuration before reading it, infer installed APIs from Rails
++examples, or add dependencies merely because a catalog recommends them.
+ 
+ ## Step 1: Detect Current Stack
+ 
+-Read `Gemfile` (NOT `Gemfile.lock`) and `package.json` and check for:
++Read pyproject.toml, uv.lock, package.json, package-lock.json, config/settings.py,
++config/urls.py, web/src/app.tsx, vite.config.ts, tsconfig files and .storybook.
+ 
+ | Look for | Means |
+-|----------|-------|
+-| `inertia_rails` gem | Inertia Rails installed (required) |
+-| `@inertiajs/react` in package.json | React frontend |
+-| `@inertiajs/vue3` in package.json | Vue 3 frontend |
+-| `@inertiajs/svelte` in package.json | Svelte frontend |
+-| `alba-inertia` gem | Convention-based rendering active |
+-| `alba` + `typelizer` gems (no `alba-inertia`) | Alba serialization without convention rendering |
+-| `pagy` gem | Pagy pagination |
+-| `kaminari` gem | Kaminari pagination |
+-| `rspec-rails` gem | RSpec testing |
+-| `js-routes` gem | Typed frontend path helpers |
+-| `devise` gem | Devise authentication |
+-| `pundit` gem | Pundit authorization |
+-| `action_policy` gem | Action Policy authorization |
+-| `components.json` in root exists | shadcn installed (React: shadcn/ui, Vue: shadcn-vue, Svelte: shadcn-svelte) |
++|---|---|
++| Django and inertia-django | Backend and Inertia protocol adapter |
++| django-vite | Django template tags and Vite manifest integration |
++| @inertiajs/react, vue3 or svelte | Actual frontend adapter; this starter uses React |
++| django.contrib.auth and accounts.User | Session authentication and custom user model |
++| PostgreSQL / psycopg | Production database contract |
++| pytest-django | Request and model tests |
++| components.json | shadcn configuration only if actually present |
++| Storybook scripts and stories | Existing component preview conventions |
+ 
+ ## Step 2: Recommend Missing Deps
+ 
+-Present detected stack, then offer deps that unlock skill features but aren't
+-installed yet. Use AskUserQuestion with multiSelect for the recommendations.
+-
+-**Only recommend what's missing.** Skip anything already detected in Step 1.
+-
+-| Dep | Type | Install command | What it unlocks |
+-|-----|------|-----------------|-----------------|
+-| `alba` + `typelizer` + `alba-inertia` | gems | `bundle add alba typelizer alba-inertia` | Convention-based rendering, auto-generated TypeScript types from Ruby. Eliminates `render inertia: { ... }` boilerplate and manual TS interfaces. Unlocks `alba-inertia` skill. |
+-| `js-routes` | gem | `bundle add js-routes` | Typed path helpers (`usersPath()`, `userPath(id)`) in React — no more hardcoded URL strings. |
+-| `pagy` | gem | `bundle add pagy` | Lightweight pagination with Inertia-friendly metadata. |
+-| shadcn/ui (React) | npx | `npx shadcn@latest init` | Pre-built React components adapted for Inertia. Unlocks `shadcn-inertia` skill. |
+-| shadcn-vue (Vue) | npx | `npx shadcn-vue@latest init` | Pre-built Vue components adapted for Inertia. Unlocks `shadcn-vue-inertia` skill. |
+-| shadcn-svelte (Svelte) | npx | `npx shadcn-svelte@latest init` | Pre-built Svelte components (bits-ui) adapted for Inertia. Unlocks `shadcn-svelte-inertia` skill. |
+-
+-**Do NOT recommend** gems the user clearly chose alternatives for (e.g., don't suggest Pagy if Kaminari is present, you can still suggest alba if the project has `jbuilder` or `blueprinter`).
++Compare the requested feature to installed capabilities. Django already supplies
++forms, auth, pagination and ORM queries. Explicit DTOs and TypeScript interfaces
++need no serializer/codegen dependency. Reuse existing React components and contracts.
++Recommend shadcn, a queue or an SDK only when a specific feature needs it; explain
++its concrete contract and installation impact. Do not replace a chosen alternative.
+ 
+ ## Step 3: Install Opted-In Deps
+ 
+-Post-install scaffolding per dep:
++Use uv and npm with the checked-in versions and lockfiles. For an authorized
++feature, add only the required package, update its lockfile and configure it explicitly.
++Verify middleware order, CSRF/body parsing, URL trailing slashes, migrations and
++safe JSON encoding. Keep Vite and TypeScript aliases consistent; no Ruby plugin
++supplies aliases. Uploads need request.FILES, limits and storage policy.
+ 
+-1. **alba-inertia** — also scaffold `ApplicationResource`:
+-   ```ruby
+-   # app/resources/application_resource.rb
+-   class ApplicationResource
+-     include Alba::Resource
+-     helper Typelizer::DSL
+-     helper Alba::Inertia::Resource
+-     include Rails.application.routes.url_helpers
+-   end
+-   ```
+-   And add Typelizer initializer:
+-   ```ruby
+-   # config/initializers/typelizer.rb
+-   Typelizer.configure do |config|
+-     config.output_dir = Rails.root.join("app/frontend/types/generated")
+-   end
+-   ```
+-2. **js-routes** — run `rails generate js_routes` if the generator exists
+-3. **shadcn** — framework-specific init:
+-   - React: `npx shadcn@latest init`
+-   - Vue: `npx shadcn-vue@latest init`
+-   - Svelte: `npx shadcn-svelte@latest init`
+-   After init, add `@/` resolve aliases to `tsconfig.json` if not present
++## Step 4: Update the Repository Contract
+ 
+-## Step 4: Generate CLAUDE.md
+-
+-Find or create `CLAUDE.md` in the project root. If `## Inertia Rails Stack`
+-exists, replace it (up to next `##` or EOF). Otherwise, append.
+-
+-**MANDATORY — READ ENTIRE FILE** before assembling the CLAUDE.md block:
+-[`references/claude-md-templates.md`](references/claude-md-templates.md) (~90 lines) — all
+-template blocks for each stack variant (serialization, UI, pagination, testing, routing,
+-authorization). Pick one block per category based on the detected stack.
+-
+-**Do NOT load** the templates file until Step 4 — Steps 1-3 determine which blocks to use.
++Read [configuration blocks](references/claude-md-templates.md). Update the existing
++AGENTS.md stack section locally; if a project already uses CLAUDE.md, preserve its
++custom rules and link to one source of truth. Do not create competing instructions.
++Document actual render, error, message and test contracts, not uninstalled generators.
+ 
+ ## Troubleshooting
+ 
+-| Symptom | Cause | Fix |
+-|---------|-------|-----|
+-| `npx shadcn@latest init` fails with "No framework detected" | Missing or misconfigured `vite.config.ts` | Ensure `vite-plugin-ruby` is configured and `tailwindcss` is in `package.json` before running init |
+-| Typelizer generates types in wrong directory | Missing or wrong `output_dir` in initializer | Add `config/initializers/typelizer.rb` with `config.output_dir = Rails.root.join("app/frontend/types/generated")` |
+-| `@/` imports not resolving | Aliases added to `vite.config.ts` instead of `tsconfig.json` | `vite-plugin-ruby` handles Vite aliases — only `tsconfig.json` needs `@/` paths for TypeScript |
+-| CLAUDE.md has conflicting instructions | Multiple `## Inertia Rails Stack` sections | Delete duplicates — only one auto-generated block should exist |
+-| Skills reference `alba-inertia` but it's not installed | Setup wasn't run, or alba wasn't selected | Re-run setup; CLAUDE.md should say "alba-inertia skill does NOT apply" if gem is absent |
+-| `js_routes:generate` fails | `js-routes` gem installed but generator not yet run | Run `rails generate js_routes` first to create the config file, then `rails js_routes:generate` |
++| Symptom | Cause to inspect | Fix |
++|---|---|---|
++| Vite manifest missing | Frontend not built | Run the configured npm build |
++| Blank component | Name mismatch | Match render component to app.tsx resolver |
++| CSRF 403 | Header, cookie or trusted origin mismatch | Use shared csrfToken and inspect Django settings |
++| Form has no values | JSON/multipart method parsing | Use explicit form_input or request.FILES boundary |
++| Private fields in JSON | Implicit model encoding | Keep DjangoJSONEncoder and explicit DTOs |
++| Conflicting agent rules | Multiple stack blocks | Preserve one source and fix links |
+ 
+ ## Step 5: Summary
+ 
+-Tell the user:
+-1. What was installed
+-2. Which skills are relevant to their stack (and which to ignore)
+-3. Review `## Inertia Rails Stack` in CLAUDE.md — it takes precedence over
+-   generic examples in individual skills
++Report changes, installed versions, relevant skills, verified commands and remaining
++limits. Run the project's existing checks before declaring setup complete.
+--- original/references/claude-md-templates.md
++++ adapted/references/claude-md-templates.md
+@@ -1,79 +1,39 @@
+-# CLAUDE.md Template Blocks
++# Repository Stack Blocks
+ 
+-Assemble these blocks based on the **final** stack (detected + installed).
++Select only the blocks supported by inspected manifests and code. Update existing
++instructions; do not append a second conflicting contract.
+ 
+-## Header (always)
++## Framework
+ 
+-```markdown
+-## Inertia Rails Stack
++Django views return inertia.render(request, explicit_component, props=...). React
++owns ephemeral UI; Django owns URLs, authorization and persisted state.
+ 
+-- **Frontend**: [React/Vue 3/Svelte] with @inertiajs/[react|vue3|svelte] [version]
+-```
++## Serialization
+ 
+-## Serialization (pick ONE)
++Use bounded explicit DTO functions. DjangoJSONEncoder must not receive model
++instances. Producer and consumer types change together; no type generator is installed.
+ 
+-**alba-inertia:**
+-```markdown
+-- **Serialization**: alba-inertia convention-based rendering. Set instance variables — `Alba::Inertia::Controller` auto-detects resources. Do NOT use `render inertia: { ... }` directly. This overrides render patterns from other Inertia skills.
+-- **Shared props**: `SharedPropsResource` via `inertia_share { SharedPropsResource.new(self).to_inertia }`, NOT raw `inertia_share` with `as_json`.
+-- **Types**: Typelizer auto-generates TypeScript from Alba resources. Do NOT manually edit generated files.
+-```
++## UI
+ 
+-**alba + typelizer (no alba-inertia):**
+-```markdown
+-- **Serialization**: Alba resources with Typelizer. Use `render inertia: { key: ResourceClass.new(data) }`.
+-- **Types**: Typelizer auto-generates TypeScript from Alba resources. Do NOT manually edit generated files.
+-```
++Reuse web/src/components and design-system contracts. Preserve configured Storybook
++story locations. Only use shadcn components if installed for the feature.
+ 
+-**Neither:**
+-```markdown
+-- **Serialization**: `render inertia: { key: value }` with `as_json`. The `alba-inertia` skill does NOT apply — ignore it.
+-```
++## Pagination
+ 
+-## UI (pick ONE per framework)
++Use Django Paginator or an explicit stable cursor. Inertia scroll() takes props and
++metadata; always scope by the current authorized actor before pagination.
+ 
+-**React + shadcn/ui:**
+-```markdown
+-- **UI**: shadcn/ui adapted for Inertia. NEVER react-hook-form, zod, FormField, FormItem, or FormMessage — use Inertia `<Form>` with plain shadcn inputs.
+-```
++## Testing
+ 
+-**Vue + shadcn-vue:**
+-```markdown
+-- **UI**: shadcn-vue adapted for Inertia. Use Inertia `<Form>` with plain shadcn-vue inputs via `#default` scoped slot.
+-```
++pytest-django and Django Client exercise actual middleware. Assert response JSON,
++CSRF, ownership, 303 redirects, one-use errors/messages and partial loading.
+ 
+-**Svelte + shadcn-svelte:**
+-```markdown
+-- **UI**: shadcn-svelte (bits-ui) adapted for Inertia. Use Inertia `<Form>` with plain shadcn-svelte inputs via `{#snippet}` syntax.
+-```
++## Routing
+ 
+-**Not present:**
+-```markdown
+-- **UI**: Custom components. The shadcn skills do NOT apply — ignore them.
+-```
++config/urls.py owns URLs. The starter has no automatic TypeScript route generator.
++Use trailing slashes and update callers with server routes.
+ 
+-## Pagination (if applicable)
++## Authorization
+ 
+-**Pagy:** `- **Pagination**: Pagy. Use pagy helper in controllers, pass pagy_metadata as prop.`
+-
+-**Kaminari:** `- **Pagination**: Kaminari. Use .page(params[:page]).per(25) in controllers.`
+-
+-## Testing (pick ONE)
+-
+-**RSpec:** `- **Testing**: RSpec with inertia_rails/rspec matchers. Use render_component, have_props, have_flash — NOT direct property access.`
+-
+-**Minitest:** `- **Testing**: Minitest. Load references/minitest.md from inertia-rails-testing for assertions.`
+-
+-## Routing (if applicable)
+-
+-**js-routes:** `- **Routing**: js-routes for typed path helpers. Run rails js_routes:generate after changing routes.rb.`
+-
+-## Authorization (if applicable)
+-
+-`- **Authorization**: [GEM NAME]. Pass can hashes as props — see references/authorization.md in inertia-rails-controllers.`
+-
+-## Footer (always)
+-
+-```markdown
+-- **Architecture**: Server owns routing, data, and auth. [React/Vue/Svelte] renders only. See `inertia-rails-architecture` for the decision matrix.
+-```
++Authenticate at entrypoints, scope object lookups and repeat permission checks on
++mutations. Frontend can props affect presentation, never authority.

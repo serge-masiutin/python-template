@@ -1,0 +1,151 @@
+--- original/SKILL.md
++++ adapted/SKILL.md
+@@ -1,12 +1,32 @@
+ ---
+-name: inertia-rails-typescript
++name: inertia-python-typescript
+ description: >-
+-  TypeScript type safety for Inertia Rails (React, Vue, Svelte): shared props, flash, and errors via InertiaConfig
++  TypeScript type safety for Inertia Django (React, Vue, Svelte): shared props, flash, and errors via InertiaConfig
+   module augmentation in globals.d.ts. Use when setting up TypeScript types, configuring shared props typing, fixing
+   TS2344 or TS2339 errors in Inertia components, or adding new shared data.
+ ---
+ 
+-# Inertia Rails TypeScript Setup
++## Project Contract
++
++- Read config/settings.py, config/middleware.py, config/http.py and the caller first.
++  This repository uses inertia-django 2 and @inertiajs/react 3, with explicit page names.
++- Server examples below illustrate feature contracts, not preinstalled routes or models.
++  Django views return render(request, component, props=...). Never serialize a model
++  or QuerySet implicitly; build a bounded allowlist first.
++- Use trailing-slash Django routes. The starter mutations are POST endpoints; Django
++  does not automatically parse multipart PATCH/PUT bodies or Rails _method overrides.
++- Supply the shared csrfToken as X-CSRFToken for mutations; config/http.py validates
++  supported JSON or form bodies. A Form component alone does not configure Django CSRF.
++  Do not also configure automatic XSRF injection for the same header: the client
++  can append both values, producing a token Django rejects.
++- Validation uses redirect-after-POST and one-use errors in shared props.
++  Messages use page.flash.messages, an array of {level, message}; there are no
++  notice/alert keys. See the actual web/src/types.ts contract.
++- Frontend-only Vue/Svelte references preserve upstream alternatives; this starter
++  installs React. Rails-only generators and implicit resource lookup do not apply.
++
++
++# Inertia Django TypeScript Setup
+ 
+ Type-safe shared props, flash, and errors using InertiaConfig module augmentation.
+ Works identically across React, Vue, and Svelte — the `globals.d.ts` and `InertiaConfig` setup is the same for all frameworks.
+@@ -25,32 +45,31 @@
+ - `errorValueType` (NOT errorBag, NOT errorType)
+ 
+ ```typescript
+-// app/frontend/types/globals.d.ts
++// web/src/types/globals.d.ts
+ import type { FlashData, SharedProps } from '@/types'
+ 
+ declare module '@inertiajs/core' {
+   export interface InertiaConfig {
+     sharedPageProps: SharedProps   // EXACT name — auto-typed for usePage().props
+     flashDataType: FlashData      // EXACT name — auto-typed for usePage().flash
+-    errorValueType: string[]      // EXACT name — errors are arrays of strings
++    errorValueType: string      // EXACT name — errors are first-message strings
+   }
+ }
+ ```
+ 
+ ```typescript
+-// app/frontend/types/index.ts
++// web/src/types/index.ts
+ export interface FlashData {
+-  notice?: string
+-  alert?: string
++  messages?: { level: string; message: string }[]
+ }
+ 
+ export interface SharedProps {
+-  auth: { user?: { id: number; name: string; email: string } }
++  auth: { user: { id: string; username: string; admin: boolean } | null }
+ }
+ ```
+ 
+ **Convention:** Use `auth: { user: ... }` as the shared props key — this matches the
+-Rails `inertia_share` community convention (`{ auth: { user: current_user } }`).
++Django shared-prop contract (`auth={"user": user_summary}`).
+ The `auth` namespace separates authentication data from page props, preventing
+ collisions when a page has its own `user` prop. Do NOT use `current_user:` or
+ `user:` as top-level keys — they collide with page-specific props and break the
+@@ -82,21 +101,21 @@
+ // GOOD — props from usePage().props, flash from usePage().flash:
+ const { props, flash } = usePage()
+ // props.auth is typed (from SharedProps via InertiaConfig)
+-// flash.notice is typed (from FlashData via InertiaConfig)
++// flash.messages is typed (from FlashData via InertiaConfig)
+ ```
+ 
+ **Important:** `globals.d.ts` configures InertiaConfig ONCE. When adding a new shared
+ prop, only update `index.ts` — do NOT touch `globals.d.ts`:
+ 
+ ```typescript
+-// BEFORE — app/frontend/types/index.ts
++// BEFORE — web/src/types/index.ts
+ export interface SharedProps {
+-  auth: { user?: { id: number; name: string; email: string } }
++  auth: { user: { id: string; username: string; admin: boolean } | null }
+ }
+ 
+ // AFTER — add the new key here, NOT in globals.d.ts
+ export interface SharedProps {
+-  auth: { user?: { id: number; name: string; email: string } }
++  auth: { user: { id: string; username: string; admin: boolean } | null }
+   notifications: { unread_count: number }
+ }
+ ```
+@@ -135,7 +154,7 @@
+   // Access shared props separately:
+   const { props, flash } = usePage()
+   // props.auth is typed via InertiaConfig
+-  // flash.notice is typed via InertiaConfig
++  // flash.messages is typed via InertiaConfig
+   return <UserList users={users} />
+ }
+ ```
+@@ -161,7 +180,7 @@
+ <script lang="ts">
+   import { page } from '@inertiajs/svelte'
+   // $page.props.auth is typed via InertiaConfig
+-  // $page.flash.notice is typed via InertiaConfig
++  // $page.flash.messages is typed via InertiaConfig
+ </script>
+ ```
+ 
+@@ -173,19 +192,17 @@
+ | **TS2339** `'auth' does not exist on type Page` | Destructuring `auth` from `usePage()` directly | `usePage()` returns `{ props, flash, ... }` — use `usePage().props.auth`, not `usePage().auth` |
+ | **TS2339** `'flash' does not exist on type` | Accessing `usePage().props.flash` | Flash is top-level: `usePage().flash`, NOT `usePage().props.flash` |
+ | Shared props untyped | Missing InertiaConfig | Add `globals.d.ts` with module augmentation (see above) |
+-| InertiaConfig not taking effect | Declaration in wrong file | Must be in a `.d.ts` file (e.g., `globals.d.ts`), not in `.ts` — TypeScript ignores `declare module` in regular `.ts` files that have imports/exports |
++| InertiaConfig not taking effect | Declaration in wrong file | Must be in a `.d.ts` file (e.g., `globals.d.ts`), not in `.ts`; an included .ts module augmentation also works, as in web/src/types.ts |
+ | Types correct but IDE shows errors | `globals.d.ts` not included | Verify `tsconfig.app.json` includes the types directory in `include` array |
+ 
+-## Typelizer Integration
+-
+-If using the `typelizer` gem (see `alba-inertia` skill), SharedProps are auto-generated
+-from your serializer — do NOT manually write the `SharedProps` interface in `index.ts`.
+-You only write `globals.d.ts` once (the InertiaConfig augmentation). When you add a new
+-attribute to `SharedPropsResource`, Typelizer regenerates `index.ts` and the types
+-propagate via InertiaConfig — no manual type updates needed.
++## Contract Updates
++
++Update web/src/types.ts with the producer DTO and request tests. There is no
++Typelizer generator. If a generator is introduced, document its actual inputs,
++output and reproducible command.
+ 
+ ## Related Skills
+-- **Shared props setup** → `inertia-rails-controllers` (inertia_share)
+-- **Flash config** → `inertia-rails-controllers` (flash_keys)
+-- **Auto-generated types** → `alba-inertia` (Typelizer + Alba resources)
+-- **Page component props** → `inertia-rails-pages` (type Props pattern)
++- **Shared props setup** → `inertia-python-controllers` (share(request, ...))
++- **Flash config** → `inertia-python-controllers` (Django messages)
++- **Explicit DTO contracts** → `python-serialization`
++- **Page component props** → `inertia-python-pages` (type Props pattern)

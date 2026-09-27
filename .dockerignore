@@ -1,0 +1,16 @@
+.git
+.env
+.venv
+node_modules
+web/build
+staticfiles
+storybook-static
+.agents
+third_party
+__pycache__
+**/__pycache__
+.pytest_cache
+.ruff_cache
+tmp
+playwright-report
+test-results

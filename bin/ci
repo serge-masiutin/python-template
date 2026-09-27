@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+uv run --frozen ruff check .
+uv run --frozen ruff format --check .
+npm run build
+uv run --frozen python manage.py check --settings=config.settings_test
+uv run --frozen python manage.py makemigrations --check --dry-run --settings=config.settings_test
+uv run --frozen pytest
+npm test
+npm run build:storybook
+bin/design-system-check
+node scripts/check-skills.mjs
+uv run --frozen python scripts/check-skill-sources.py
