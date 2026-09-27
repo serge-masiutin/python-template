@@ -23,7 +23,7 @@ mise exec -- bin/manage createsuperuser
 mise exec -- bin/dev
 ```
 
-Open **http://localhost:8000**, sign in with the username and password you created, and add a note. The administrator can open Django admin to manage users and notes.
+Open **http://127.0.0.1:8000**, sign in with the username and password you created, and add a note. The administrator can open Django admin to manage users and notes.
 
 `bin/setup` creates a private `.env` with a random secret, installs locked dependencies, starts PostgreSQL on `127.0.0.1:5438`, builds assets and applies migrations. Re-running it preserves existing configuration and database data. Dependency and Docker downloads require network access.
 

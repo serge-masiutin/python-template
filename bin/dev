@@ -4,4 +4,4 @@ cd "$(dirname "$0")/.."
 npm run dev &
 vite_pid=$!
 trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
-bin/manage runserver localhost:8000
+bin/manage runserver 127.0.0.1:8000

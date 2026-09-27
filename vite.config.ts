@@ -14,7 +14,7 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5173,
     strictPort: true,
-    cors: { origin: "http://localhost:8000" },
+    cors: { origin: "http://127.0.0.1:8000" },
   },
   build: {
     outDir: "web/build",

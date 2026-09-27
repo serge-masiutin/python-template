@@ -22,7 +22,7 @@ protect concurrent invariants.
 
 ## Frontend and catalog
 
-bin/dev runs Vite on 127.0.0.1:5173 and Django on localhost:8000. Visit the latter.
+bin/dev runs Vite on 127.0.0.1:5173 and Django on 127.0.0.1:8000. Visit the latter.
 Django-vite resolves development modules; production reads web/build/manifest.json.
 Use npm run storybook for the independent catalog. Components and stories live in
 web/src/components. DESIGN.md documents reuse and contract verification.

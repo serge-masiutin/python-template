@@ -105,7 +105,11 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 DJANGO_VITE = {
-    "default": {"dev_mode": DEBUG, "manifest_path": BASE_DIR / "web/build/manifest.json"}
+    "default": {
+        "dev_mode": DEBUG,
+        "dev_server_host": "127.0.0.1",
+        "manifest_path": BASE_DIR / "web/build/manifest.json",
+    }
 }
 INERTIA_LAYOUT = "base.html"
 # Fail on model/queryset props instead of using the adapter's implicit model_to_dict encoder.
